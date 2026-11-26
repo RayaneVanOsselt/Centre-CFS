@@ -1,12 +1,14 @@
-"""Génère les fichiers du nouveau logo Centre CFS (texte vectorisé, aucune police requise)."""
-import os
-from fontTools.ttLib import TTFont
-from fontTools.pens.svgPathPen import SVGPathPen
-from fontTools.pens.transformPen import TransformPen
+"""Génère les fichiers du logo Centre CFS (texte vectorisé, aucune police requise).
 
-FONTS = os.path.join(os.path.dirname(__file__), "node_modules/@fontsource")
-OUT = os.path.join(os.path.dirname(__file__), "out/logo")
-os.makedirs(OUT, exist_ok=True)
+    python3 site/lib/logo.py     # régénère site/src/assets/img/logo/*.svg (nécessite fontTools + brotli)
+
+Le symbole (symbol(), favicon()) est pur SVG : build.py l'utilise sans aucune dépendance.
+"""
+import os
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+FONTS = os.path.join(HERE, "..", "src", "assets", "fonts")
+OUT = os.path.join(HERE, "..", "src", "assets", "img", "logo")
 
 BLEU = "#0D4A8C"
 JAUNE = "#F7B500"
@@ -17,6 +19,7 @@ _cache = {}
 
 
 def font(path):
+    from fontTools.ttLib import TTFont  # import tardif : seul le dessin du texte en a besoin
     if path not in _cache:
         _cache[path] = TTFont(os.path.join(FONTS, path))
     return _cache[path]
@@ -24,6 +27,8 @@ def font(path):
 
 def text_path(txt, fpath, size, x, y, tracking=0.0):
     """Retourne (d, largeur) du texte vectorisé. y = ligne de base."""
+    from fontTools.pens.svgPathPen import SVGPathPen
+    from fontTools.pens.transformPen import TransformPen
     f = font(fpath)
     gs = f.getGlyphSet()
     cmap = f.getBestCmap()
@@ -73,9 +78,9 @@ def symbol(ox=0, oy=0, scale=1.0, disc=BLEU, c=BLANC, check=JAUNE, check_out=Non
     )
 
 
-BC800 = "barlow-condensed/files/barlow-condensed-latin-800-normal.woff2"
-B600 = "barlow/files/barlow-latin-600-normal.woff2"
-B500 = "barlow/files/barlow-latin-500-normal.woff2"
+BC800 = "barlow-condensed-800.woff2"
+B600 = "barlow-600.woff2"
+B500 = "barlow-500.woff2"
 
 
 def horizontal(theme="couleur"):
@@ -181,6 +186,7 @@ def favicon():
 
 
 if __name__ == "__main__":
+    os.makedirs(OUT, exist_ok=True)
     files = {}
     for th in ["couleur", "negatif", "mono-noir", "mono-blanc"]:
         files[f"cfs-logo-horizontal-{th}.svg"] = horizontal(th)[0]

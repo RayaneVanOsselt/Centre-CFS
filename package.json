@@ -11,7 +11,7 @@
     "build": "python3 site/build.py",
     "build:dev": "python3 site/build.py --dev",
     "import:client": "python3 site/tools/import_client.py",
-    "vendor": "node scripts/vendor.js",
+    "vendor": "python3 site/tools/vendor.py",
     "dev": "node scripts/dev.js",
     "mock:sheet": "node scripts/mock-sheet.js",
     "test": "node --test \"tests/**/*.test.js\"",

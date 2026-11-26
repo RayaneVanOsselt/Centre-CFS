@@ -1,0 +1,143 @@
+{
+  "formations": {
+    "amiante": {
+      "capacite": null,
+      "prix": null,
+      "reservable": true
+    },
+    "ari-appareil-respiratoire": {
+      "capacite": null,
+      "prix": null,
+      "reservable": true
+    },
+    "ba4": {
+      "capacite": null,
+      "prix": 275.0,
+      "reservable": true
+    },
+    "ba5": {
+      "capacite": null,
+      "prix": 275.0,
+      "reservable": true
+    },
+    "chariot-elevateur": {
+      "capacite": null,
+      "prix": null,
+      "reservable": true
+    },
+    "conseiller-prevention-base": {
+      "capacite": null,
+      "prix": null,
+      "reservable": true
+    },
+    "dea-defibrillateur": {
+      "capacite": null,
+      "prix": null,
+      "reservable": true
+    },
+    "echafaudage": {
+      "capacite": null,
+      "prix": null,
+      "reservable": true
+    },
+    "equipier-premiere-intervention": {
+      "capacite": null,
+      "prix": null,
+      "reservable": true
+    },
+    "ergonomie": {
+      "capacite": null,
+      "prix": null,
+      "reservable": true
+    },
+    "harnais": {
+      "capacite": null,
+      "prix": null,
+      "reservable": true
+    },
+    "initiation-feu": {
+      "capacite": null,
+      "prix": null,
+      "reservable": true
+    },
+    "initiation-premiers-soins": {
+      "capacite": 15,
+      "prix": null,
+      "reservable": true
+    },
+    "nacelle": {
+      "capacite": null,
+      "prix": null,
+      "reservable": true
+    },
+    "pont-roulant": {
+      "capacite": null,
+      "prix": null,
+      "reservable": true
+    },
+    "produits-dangereux": {
+      "capacite": null,
+      "prix": null,
+      "reservable": true
+    },
+    "rappel-secourisme": {
+      "capacite": null,
+      "prix": null,
+      "reservable": true
+    },
+    "recyclage-conseiller-prevention": {
+      "capacite": null,
+      "prix": null,
+      "reservable": true
+    },
+    "recyclage-equipier-premiere-intervention": {
+      "capacite": null,
+      "prix": null,
+      "reservable": true
+    },
+    "secourisme-base": {
+      "capacite": null,
+      "prix": null,
+      "reservable": true
+    },
+    "vca-base": {
+      "capacite": null,
+      "prix": 250.0,
+      "reservable": true
+    },
+    "vca-ligne-hierarchique": {
+      "capacite": null,
+      "prix": 400.0,
+      "reservable": true
+    }
+  },
+  "salles": [
+    {
+      "cap": 10,
+      "name": "Salle 1",
+      "prices": {
+        "demi_journee": null,
+        "journee": null,
+        "semaine": null
+      }
+    },
+    {
+      "cap": 15,
+      "name": "Salle 2",
+      "prices": {
+        "demi_journee": null,
+        "journee": null,
+        "semaine": null
+      }
+    },
+    {
+      "cap": 25,
+      "name": "Salle 3",
+      "prices": {
+        "demi_journee": null,
+        "journee": null,
+        "semaine": null
+      }
+    }
+  ]
+}
