@@ -1,0 +1,11 @@
+Photos du Centre CFS (format JPG, 1600 px de large minimum, lumière naturelle, EPI correctement portés).
+
+Noms attendus (le site les utilise automatiquement s'ils sont présents) :
+  salle-01.jpg   salle de 10 personnes
+  salle-02.jpg   salle de 15 personnes
+  salle-03.jpg   salle de 25 personnes
+  formation-feu.jpg, formation-secourisme.jpg, formation-hauteur.jpg   exercices pratiques
+  formateurs.jpg   l'équipe de formateurs
+
+Toute photo où une personne est reconnaissable doit avoir une ligne dans accords-photos.csv
+(nom du fichier, personnes, date de l'accord écrit). Sans cette ligne, la photo n'est pas publiée.
