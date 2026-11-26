@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /inscription/
+
+Sitemap: https://centrecfs.be/sitemap.xml
