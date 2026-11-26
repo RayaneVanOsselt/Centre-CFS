@@ -231,6 +231,8 @@ main:focus { outline: none; }
   .mega-col li a { font-size: var(--t-m); padding: .35rem 0; }
   .mega-col h3 a { width: auto; padding: 0; font-size: 1.15rem; justify-content: flex-start; }
   .nav-mobile-cta { display: grid; gap: var(--s-3); margin-top: var(--s-5); }
+  /* Les boutons du menu mobile gardent leur style de bouton (la règle « .nav a » ci-dessus est plus spécifique que « .btn ») */
+  .nav .nav-mobile-cta .btn { justify-content: center; padding: .7rem 1.35rem; font-size: var(--t-m); color: var(--btn-fg); background: var(--btn-bg); border: 2px solid var(--btn-bd); border-radius: var(--r-btn); }
 }
 @media (max-width: 420px) { .lang-switch summary svg:first-child { display: none; } .icon-link { padding-inline: .45rem; } }
 body.nav-open { overflow: hidden; }

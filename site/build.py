@@ -19,6 +19,7 @@ import shutil
 import sys
 import urllib.request
 from datetime import date
+from urllib.parse import urlparse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -70,19 +71,55 @@ def cfg(key, default=""):
     return os.environ.get(key) or _DV.get(key) or default
 
 
+def base_path(v):
+    """« Centre-CFS/ » → « /Centre-CFS » ; vide → « » (site servi à la racine du domaine)."""
+    v = (v or "").strip().strip("/")
+    if v and not re.match(r"^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$", v):
+        sys.exit(f"Configuration invalide : BASE_PATH = {v}")
+    return "/" + v if v else ""
+
+
+# Chemin de base : « /Centre-CFS » quand le site est servi par GitHub Pages sans domaine personnalisé
+# (https://<compte>.github.io/Centre-CFS/), vide avec un domaine (https://centrecfs.be/).
+BASE = base_path(cfg("BASE_PATH"))
+
+# Les fonctions qui demandent un serveur (Worker Cloudflare, Supabase, Mollie) sont DÉSACTIVÉES par défaut : un site
+# statique (GitHub Pages) ne peut pas les faire tourner. Le code reste en place ; chaque option s'active par une variable.
 PUBLIC = {
     "siteUrl": cfg("SITE_URL", "http://localhost:8787" if DEV else C.SITE["url"]).rstrip("/"),
+    "basePath": BASE,
     "supabaseUrl": cfg("SUPABASE_URL"),
     "supabaseKey": cfg("SUPABASE_PUBLISHABLE_KEY"),
     "turnstileSiteKey": cfg("TURNSTILE_SITE_KEY"),
     "googleAuth": cfg("AUTH_GOOGLE_ENABLED", "0") == "1",
-    "chatbot": cfg("CHATBOT_ENABLED", "1") == "1",
+    "chatbot": cfg("CHATBOT_ENABLED", "0") == "1",
+    "accounts": cfg("ACCOUNTS_ENABLED", "0") == "1",
+    "onlinePayment": cfg("ONLINE_PAYMENT_ENABLED", "0") == "1",
+    # Adresse qui reçoit les formulaires en JSON (Worker, Formspree…). Vide : le formulaire prépare un e-mail.
+    "formEndpoint": cfg("FORM_ENDPOINT"),
+    # Liste publique des sessions avec les places en direct (JSON { status: "ok", sessions: [...] }). Vide : fichier de secours.
+    "sessionsUrl": cfg("SESSIONS_PUBLIC_URL"),
+    "email": C.SITE["email"],
+    # Destinataire des demandes préparées par e-mail (mode sans FORM_ENDPOINT). Par défaut : l'adresse du centre.
+    "formEmail": cfg("FORM_EMAIL", C.SITE["email"]),
+    "phone": C.SITE["phone_display"],
     "vatRate": float(cfg("VAT_RATE", "0.21")),
 }
 for k in ("supabaseUrl",):
     if PUBLIC[k] and not re.match(r"^https?://[A-Za-z0-9.-]+(:\d+)?$", PUBLIC[k]):
         sys.exit(f"Configuration invalide : {k} = {PUBLIC[k]}")
+for k in ("formEndpoint", "sessionsUrl"):
+    if PUBLIC[k] and not re.match(r"^(https://[A-Za-z0-9.-]+(:\d+)?|)/[A-Za-z0-9._~/?=&%-]*$", PUBLIC[k]):
+        sys.exit(f"Configuration invalide : {k} = {PUBLIC[k]} (adresse https:// ou chemin commençant par /)")
+if not re.match(r"^[^@\s\"<>]+@[^@\s\"<>]+\.[A-Za-z]{2,}$", PUBLIC["formEmail"]):
+    sys.exit(f"Configuration invalide : FORM_EMAIL = {PUBLIC['formEmail']}")
+if PUBLIC["accounts"] and not (PUBLIC["supabaseUrl"] and PUBLIC["supabaseKey"]):
+    sys.exit("ACCOUNTS_ENABLED=1 demande SUPABASE_URL et SUPABASE_PUBLISHABLE_KEY")
+if PUBLIC["onlinePayment"] and not PUBLIC["accounts"]:
+    sys.exit("ONLINE_PAYMENT_ENABLED=1 demande l'espace client (ACCOUNTS_ENABLED=1) et le Worker")
 CANON = C.SITE["url"]  # adresses canoniques et données structurées : toujours le domaine officiel
+# Aperçu (GitHub Pages sans domaine, développement) : jamais indexé, pour ne pas concurrencer le domaine officiel.
+PREVIEW = urlparse(PUBLIC["siteUrl"]).netloc.removeprefix("www.") != urlparse(CANON).netloc.removeprefix("www.")
 
 
 # ───────────────────────────── données client (prix, capacités) et sessions réelles
@@ -127,6 +164,18 @@ def P(lang, *keys):
     for k in keys:
         d = d[k]
     return d
+
+
+# Sans places en direct ni paiement en ligne (site statique), les textes qui les promettent sont remplacés
+# par leur variante « _static » (même clé suffixée, dans fr.py, nl.py et en.py).
+STATIC_TEXTS = not (PUBLIC["sessionsUrl"] and PUBLIC["onlinePayment"])
+
+
+def PS(lang, *keys):
+    """Comme P(), mais renvoie la variante « _static » quand elle existe et que le site est statique."""
+    parent = P(lang, *keys[:-1]) if len(keys) > 1 else T[lang].PAGES
+    key = keys[-1]
+    return parent.get(key + "_static", parent[key]) if STATIC_TEXTS else parent[key]
 
 
 def fmt_num(v, lang):
@@ -236,6 +285,8 @@ def nav_html(lang, active):
         cur = ' aria-current="page"' if active == key else ""
         links.append(f'<li><a href="{R.page(key, lang)}"{cur}>{E(t(lang, label))}</a></li>')
     cur_f = ' aria-current="page"' if active == "formations" else ""
+    account_btn = (f'<a class="btn btn--contour" href="{R.page("compte", lang)}">{icon("user")} {E(t(lang, "nav.account"))}</a>'
+                   if PUBLIC["accounts"] else "")
     return f'''<nav class="nav" id="nav" aria-label="{E(t(lang, "nav.main"))}">
 <ul class="nav-list">
 <li class="has-mega"><button class="nav-btn" type="button" aria-expanded="false" aria-controls="mega">{E(t(lang, "nav.formations"))}{icon("chevron")}</button>
@@ -243,19 +294,20 @@ def nav_html(lang, active):
 <div class="mega-foot"><a class="btn btn--bleu btn--petit" href="{R.page("formations", lang)}"{cur_f}>{E(t(lang, "nav.catalog_all"))}</a><p>{E(t(lang, "nav.mega_note"))}</p></div></div></div></li>
 {"".join(links)}
 </ul>
-<div class="nav-mobile-cta"><a class="btn btn--bleu" href="{R.page("contact", lang)}?type=devis">{E(t(lang, "nav.quote"))}</a><a class="btn btn--contour" href="{R.page("compte", lang)}">{icon("user")} {E(t(lang, "nav.account"))}</a><a class="btn btn--contour" href="{tel()}">{icon("phone")} {C.SITE["phone_display"]}</a></div>
+<div class="nav-mobile-cta"><a class="btn btn--bleu" href="{R.page("contact", lang)}?type=devis">{E(t(lang, "nav.quote"))}</a>{account_btn}<a class="btn btn--contour" href="{tel()}">{icon("phone")} {C.SITE["phone_display"]}</a></div>
 </nav>'''
 
 
 def header_html(lang, active, alternates):
+    account_link = (f'<a class="icon-link" href="{R.page("compte", lang)}" aria-label="{E(t(lang, "nav.account"))}" data-account-link>{icon("user")}</a>\n'
+                    if PUBLIC["accounts"] else "")
     return f'''<header class="header">
 <div class="wrap">
 <a class="logo" href="{R.page("home", lang)}" aria-label="{E(t(lang, "nav.home"))}">{LOGO_HEADER}</a>
 {nav_html(lang, active)}
 <div class="header-actions">
 {lang_switch(lang, alternates)}
-<a class="icon-link" href="{R.page("compte", lang)}" aria-label="{E(t(lang, "nav.account"))}" data-account-link>{icon("user")}</a>
-<a class="tel-link" href="{tel()}" aria-label="{E(t(lang, "nav.call", phone=C.SITE["phone_display"]))}">{icon("phone")}<span>{C.SITE["phone_display"]}</span></a>
+{account_link}<a class="tel-link" href="{tel()}" aria-label="{E(t(lang, "nav.call", phone=C.SITE["phone_display"]))}">{icon("phone")}<span>{C.SITE["phone_display"]}</span></a>
 <a class="btn btn--contour btn--petit header-quote" href="{R.page("contact", lang)}?type=devis">{E(t(lang, "nav.quote"))}</a>
 <button class="burger" type="button" aria-expanded="false" aria-controls="nav" aria-label="{E(t(lang, "nav.open_menu"))}" data-label-open="{E(t(lang, "nav.open_menu"))}" data-label-close="{E(t(lang, "nav.close_menu"))}"><span class="i-open">{icon("menu")}</span><span class="i-close" hidden>{icon("close")}</span></button>
 </div>
@@ -395,6 +447,11 @@ def page(lang, path, title, desc, body, *, alternates=None, active=None, jsonld=
     js = [f"/assets/js/site-data.{lang}.js", "/assets/js/i18n.js", "/assets/js/main.js"] + list(scripts)
     if PUBLIC["chatbot"]:
         js.append("/assets/js/chatbot.js")
+    for js_path in js:  # aucune page ne doit appeler un script absent (lien cassé + erreur dans la console)
+        if not js_path.startswith("/assets/js/site-data") and not os.path.exists(os.path.join(SRC, js_path.lstrip("/"))):
+            raise SystemExit(f"Script introuvable : site/src{js_path} (page {path}). Ajoutez le fichier ou désactivez l'option qui l'utilise.")
+    if PREVIEW:
+        robots = "noindex, nofollow"
     js_html = "".join(f'<script src="{asset(s) if not s.startswith("/assets/js/site-data") else s + "?v=" + DATA_V[lang]}" defer></script>' for s in js)
     progress_html = '<div class="progress" aria-hidden="true"></div>' if progress else ""
     chat = (f'<button class="chat-launcher" type="button" data-chat-open hidden aria-haspopup="dialog">'
@@ -407,6 +464,8 @@ def page(lang, path, title, desc, body, *, alternates=None, active=None, jsonld=
 <title>{E(full_title)}</title>
 <meta name="description" content="{E(desc)}">
 <meta name="robots" content="{robots}">
+<meta http-equiv="Content-Security-Policy" content="{csp(meta=True)}">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <link rel="canonical" href="{url}">
 {hreflang}
 <meta name="theme-color" content="#0D4A8C">
@@ -445,6 +504,7 @@ def page(lang, path, title, desc, body, *, alternates=None, active=None, jsonld=
 {chat}
 </body>
 </html>'''
+    doc = rebase(doc)
     out = os.path.join(OUT, path.strip("/"), "index.html") if not path.endswith(".html") else os.path.join(OUT, path.strip("/"))
     if path == "/":
         out = os.path.join(OUT, "index.html")
@@ -456,6 +516,14 @@ def page(lang, path, title, desc, body, *, alternates=None, active=None, jsonld=
         fh.write(doc)
     if sitemap:
         PAGES.append((lang, path, alternates, prio))
+
+
+_ROOT_URL = re.compile(r'(\s(?:href|src|action|poster)=")/(?!/)')
+
+
+def rebase(doc):
+    """Préfixe les adresses internes (« /formations/ ») par le chemin de base (« /Centre-CFS/formations/ »)."""
+    return _ROOT_URL.sub(lambda m: m.group(1) + BASE + "/", doc) if BASE else doc
 
 
 def safe_json(x):
@@ -564,7 +632,7 @@ def build_home(lang):
     why = "".join(f'<div class="bento-card spot reveal{" bento-card--wide" if i in (0, 3) else ""}"><span class="atout-ico">{icon(ic)}</span><h3>{E(ti)}</h3><p>{E(te)}</p>'
                   + (f'<ul class="langues">{"".join(f"<li>{E(x)}</li>" for x in tx.LANGUES)}</ul>' if ic == "globe" else "") + "</div>"
                   for i, (ic, ti, te) in enumerate(p["why"]))
-    steps = "".join(f'<li class="reveal"><h3>{E(a)}</h3><p>{E(b)}</p></li>' for a, b in p["steps"])
+    steps = "".join(f'<li class="reveal"><h3>{E(a)}</h3><p>{E(b)}</p></li>' for a, b in PS(lang, "home", "steps"))
     greets = "".join(f'<li lang="{code}"><span>{E(g)}</span></li>' for code, g in C.GREETINGS)
     feats = "".join(f"<li>{icon(i)}{E(x)}</li>" for i, x in zip(("screen", "wifi", "users"), p["rooms_features"]))
     faq5 = tx.FAQ_GENERALE[:5]
@@ -606,7 +674,7 @@ def build_home(lang):
 
 <section class="section section--papier" aria-labelledby="t-ag">
 <div class="wrap">
-<div class="section-head section-head--split reveal"><div><p class="eyebrow">{E(t(lang, "nav.agenda"))}</p><h2 id="t-ag">{E(p["sessions_title"])}</h2><p>{E(p["sessions_lead"])}</p></div><a class="lien-fleche" href="{R.page("agenda", lang)}">{E(p["agenda_more"])} {icon("arrow")}</a></div>
+<div class="section-head section-head--split reveal"><div><p class="eyebrow">{E(t(lang, "nav.agenda"))}</p><h2 id="t-ag">{E(p["sessions_title"])}</h2><p>{E(PS(lang, "home", "sessions_lead"))}</p></div><a class="lien-fleche" href="{R.page("agenda", lang)}">{E(p["agenda_more"])} {icon("arrow")}</a></div>
 {sessions_block(lang, "", T[lang].PAGES["formation"]["sessions_empty"], limit=6)}
 </div>
 </section>
@@ -812,7 +880,7 @@ def build_agenda(lang):
         f'<li><button class="chip chip--simple" type="button" data-sf="location" data-value="{k}" aria-pressed="false" hidden>{E(tx.LIEUX[k]["name"])}</button></li>' for k in ("engis", "charleroi", "intra"))
     opts = f'<option value="">{E(t(lang, "sess.all_trainings"))}</option>' + "".join(f'<option value="{f["slug"]}">{E(tx.FORMATIONS[f["slug"]]["title"])}</option>' for f in C.FORMATIONS)
     legend = "".join(f'<li><span class="wsc-chip wsc-chip--{lv} wsc-chip--legend" aria-hidden="true"></span>{E(t(lang, key))}</li>' for lv, key in (("open", "sess.legend_open"), ("low", "sess.legend_low"), ("full", "sess.legend_full")))
-    body = f'''{page_head(lang, crumbs, p["title"], p["lead"])}
+    body = f'''{page_head(lang, crumbs, p["title"], PS(lang, "agenda", "lead"))}
 <section class="section" aria-labelledby="t-cal"><div class="wrap">
 <h2 id="t-cal" class="sr-only">{E(p["calendar_title"])}</h2>
 <div class="cal" data-sessions-calendar>
@@ -837,7 +905,7 @@ def build_agenda(lang):
 {sessions_block(lang, 'data-filters="1"', p["cta_text"])}
 </div></section>
 {cta_band(lang, p["cta_title"], p["cta_text"])}'''
-    page(lang, R.page("agenda", lang), p["meta_title"], p["meta_desc"], body, alternates=all_alts("agenda"), active="agenda", crumbs=crumbs, prio="0.9",
+    page(lang, R.page("agenda", lang), p["meta_title"], PS(lang, "agenda", "meta_desc"), body, alternates=all_alts("agenda"), active="agenda", crumbs=crumbs, prio="0.9",
          styles=("sessions.css",), scripts=SESSION_SCRIPTS)
 
 
@@ -993,7 +1061,9 @@ def build_inscription(lang):
     p = P(lang, "inscription")
     crumbs = [home_crumb(lang), (t(lang, "nav.agenda"), R.page("agenda", lang)), (p["title"], R.page("inscription", lang))]
     langs = "".join(f'<option value="{code}">{E(name[:1].upper() + name[1:])}</option>' for code, name in zip(C.LANG_CODES, T[lang].LANGUES))
-    body = f'''{page_head(lang, crumbs, p["title"], p["lead"])}
+    pay_online = (f'\n<label class="pay-option"><input type="radio" name="payMode" value="online" checked><span><strong>{E(t(lang, "reg.pay_online"))}</strong><small>{E(t(lang, "reg.pay_online_hint"))}</small>'
+                  '<span class="pay-logos" aria-hidden="true"><span>Bancontact</span><span>Visa</span><span>Mastercard</span><span>Apple Pay</span></span></span></label>') if PUBLIC["onlinePayment"] else ""
+    body = f'''{page_head(lang, crumbs, p["title"], PS(lang, "inscription", "lead"))}
 <section class="section"><div class="wrap form-layout reg" data-registration>
 <div>
 <div class="form-status" data-status tabindex="-1" role="status"></div>
@@ -1021,15 +1091,14 @@ def build_inscription(lang):
 {field(lang, "notes", t(lang, "reg.notes"), "textarea", placeholder=t(lang, "reg.notes_placeholder"))}
 </fieldset>
 <fieldset data-pay-fieldset><legend><span class="step-n">4</span>{E(t(lang, "reg.step_payment"))}</legend>
-<div class="pay-options">
-<label class="pay-option"><input type="radio" name="payMode" value="online" checked><span><strong>{E(t(lang, "reg.pay_online"))}</strong><small>{E(t(lang, "reg.pay_online_hint"))}</small><span class="pay-logos" aria-hidden="true"><span>Bancontact</span><span>Visa</span><span>Mastercard</span><span>Apple Pay</span></span></span></label>
-<label class="pay-option"><input type="radio" name="payMode" value="invoice"><span><strong>{E(t(lang, "reg.pay_invoice"))}</strong><small>{E(t(lang, "reg.pay_invoice_hint"))}</small></span></label>
+<div class="pay-options">{pay_online}
+<label class="pay-option"><input type="radio" name="payMode" value="invoice"{"" if PUBLIC["onlinePayment"] else " checked"}><span><strong>{E(t(lang, "reg.pay_invoice"))}</strong><small>{E(t(lang, "reg.pay_invoice_hint" if PUBLIC["onlinePayment"] else "reg.pay_invoice_hint_request"))}</small></span></label>
 </div>
 <p class="hint" data-pay-hint></p>
 </fieldset>
 <label class="check field" for="terms"><input type="checkbox" id="terms" name="terms" value="1" required><span>{E(t(lang, "reg.accept_terms"))} <a href="{R.page("cgv", lang)}">{E(t(lang, "reg.terms_link"))}</a> {E(t(lang, "reg.and_privacy"))} <a href="{R.page("confidentialite", lang)}">{E(t(lang, "form.consent_link"))}</a>. <span class="req" aria-hidden="true">*</span></span><span class="error">{E(t(lang, "form.consent_error"))}</span></label>
 <div class="turnstile" data-turnstile></div>
-<div class="btn-row"><button class="btn btn--signal" type="submit" data-reg-submit>{E(t(lang, "reg.submit_pay"))}</button></div>
+<div class="btn-row"><button class="btn btn--signal" type="submit" data-reg-submit>{E(t(lang, "reg.submit_pay" if PUBLIC["onlinePayment"] else "reg.submit_request"))}</button></div>
 </form>
 <template id="tpl-participant"><div class="participant"><p class="participant-title"></p><button class="btn btn--contour btn--petit remove" type="button">{E(t(lang, "reg.remove"))}</button>
 <div class="row-2"><div class="field"><label data-for="p-first">{E(t(lang, "form.first_name"))} <span class="req" aria-hidden="true">*</span></label><input data-name="p-first" type="text" required autocomplete="off"><span class="error">{E(t(lang, "form.error_required"))}</span></div>
@@ -1047,7 +1116,8 @@ def build_inscription(lang):
 </div></section>'''
     page(lang, R.page("inscription", lang), p["meta_title"], p["meta_desc"], body, alternates=all_alts("inscription"), active="agenda", crumbs=crumbs,
          robots="noindex, follow", sitemap=False, styles=("sessions.css", "account.css"),
-         scripts=["/assets/vendor/supabase.js", "/assets/js/auth.js", "/assets/js/sessions-data.js", "/assets/js/sessions.js", "/assets/js/pricing.js", "/assets/js/vat.js", "/assets/js/forms.js", "/assets/js/registration.js"])
+         scripts=(["/assets/vendor/supabase.js", "/assets/js/auth.js"] if PUBLIC["accounts"] else [])
+         + ["/assets/js/sessions-data.js", "/assets/js/sessions.js", "/assets/js/pricing.js", "/assets/js/vat.js", "/assets/js/forms.js", "/assets/js/registration.js"])
 
 
 def build_faq(lang):
@@ -1133,7 +1203,7 @@ def build_plan(lang):
                    + "</ul></li>" for d in C.DOMAINES)
     arts = "".join(f'<li><a href="{R.article(a["key"], lang)}">{E(tx.ARTICLES[a["key"]]["title"])}</a></li>' for a in C.ARTICLES)
     simple = [("agenda", "nav.agenda"), ("entreprises", "footer.companies"), ("salles", "nav.salles"), ("centre", "nav.centre"), ("faq", "footer.faq"),
-              ("contact", "nav.contact"), ("compte", "nav.account"), ("mentions", "footer.legal"), ("confidentialite", "footer.privacy"), ("cgv", "footer.terms")]
+              ("contact", "nav.contact")] + ([("compte", "nav.account")] if PUBLIC["accounts"] else []) + [("mentions", "footer.legal"), ("confidentialite", "footer.privacy"), ("cgv", "footer.terms")]
     lis = "".join(f'<li><a href="{R.page(k, lang)}">{E(t(lang, lab))}</a></li>' for k, lab in simple)
     body = f'''{page_head(lang, crumbs, p["title"], narrow=True)}
 <section class="section"><div class="wrap-narrow prose"><ul>
@@ -1304,19 +1374,20 @@ def site_data(lang):
     cat = {
         "lang": lang, "locale": R.INTL[lang],
         "formations": [{"id": f["slug"], "domain": f["domain"], "title": tx.FORMATIONS[f["slug"]]["title"], "full": tx.FORMATIONS[f["slug"]]["full"],
-                        "url": R.formation(f["slug"], lang), "price": PRICE[f["slug"]], "bookable": BOOKABLE[f["slug"]], "lieux": f["lieux"],
+                        "url": BASE + R.formation(f["slug"], lang), "price": PRICE[f["slug"]], "bookable": BOOKABLE[f["slug"]], "lieux": f["lieux"],
                         "duration": tx.FORMATIONS[f["slug"]]["duree"], "hours": tx.FORMATIONS[f["slug"]]["horaires"],
                         "epi": f["domain"] == "equipements"} for f in C.FORMATIONS],
-        "domains": [{"id": d["slug"], "name": tx.DOMAINES[d["slug"]]["name"], "url": R.domain(d["slug"], lang), "color": d["color"], "sign": dsign(d["slug"])} for d in C.DOMAINES],
+        "domains": [{"id": d["slug"], "name": tx.DOMAINES[d["slug"]]["name"], "url": BASE + R.domain(d["slug"], lang), "color": d["color"], "sign": dsign(d["slug"])} for d in C.DOMAINES],
         "locations": {k: {"name": tx.LIEUX[k]["name"], "full": tx.LIEUX[k]["full"], "street": C.LIEUX[k]["street"], "zip": C.LIEUX[k]["zip"], "city": C.LIEUX[k]["city"], "maps": C.LIEUX[k]["maps"]} for k in C.LIEUX},
         "languages": dict(zip(C.LANG_CODES, tx.LANGUES)),
-        "routes": {k: R.page(k, lang) for k in R.PAGES},
-        "alternates": {lg: R.page("home", lg) for lg in LANGS},
+        "routes": {k: BASE + R.page(k, lang) for k in R.PAGES},
+        "alternates": {lg: BASE + R.page("home", lg) for lg in LANGS},
         "langNames": {lg: UI[lg]["lang.name"] for lg in LANGS},
         "bannerText": {lg: {"text": UI[lg]["lang.banner"], "go": UI[lg]["lang.banner_go"], "close": UI[lg]["lang.banner_close"]} for lg in LANGS},
+        "icons": {n: icon(n) for n in ("pin", "clock", "globe", "calendar", "arrow", "mail", "phone", "users", "check-circle", "alert", "info", "doc", "close")},
     }
     strings = {k: v for k, v in UI[lang].items() if k.startswith(JS_KEYS)}
-    cfg_pub = dict(PUBLIC)
+    cfg_pub = {k: v for k, v in PUBLIC.items() if k not in ("supabaseUrl", "supabaseKey") or PUBLIC["accounts"]}
     cfg_pub["dev"] = DEV
     js = ("/* Généré par site/build.py — ne pas modifier. Aucune donnée secrète. */\n"
           f"self.CFS_CONFIG={json.dumps(cfg_pub, ensure_ascii=False)};\n"
@@ -1336,6 +1407,8 @@ def write_site_data():
 
 def write_worker_data():
     """Données partagées avec le Worker (routes, catalogue pour le chatbot et les e-mails)."""
+    if not os.path.isdir(os.path.join(ROOT, "worker", "src")):
+        return
     gen = os.path.join(ROOT, "worker", "src", "generated")
     os.makedirs(gen, exist_ok=True)
     catalog = {}
@@ -1363,13 +1436,24 @@ def write_worker_data():
         fh.write("\n")
 
 
-def csp():
+def origin(url):
+    u = urlparse(url)
+    return f"{u.scheme}://{u.netloc}" if u.scheme and u.netloc else ""
+
+
+def csp(meta=False):
+    """Politique de sécurité du contenu. meta=True : version <meta> (GitHub Pages n'envoie pas d'en-têtes
+    personnalisés ; frame-ancestors y est ignoré par les navigateurs, il n'est donc pas repris)."""
     connect = ["'self'"]
-    if PUBLIC["supabaseUrl"]:
+    if PUBLIC["accounts"] and PUBLIC["supabaseUrl"]:
         connect += [PUBLIC["supabaseUrl"], PUBLIC["supabaseUrl"].replace("https://", "wss://").replace("http://", "ws://")]
-    return ("default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; "
-            f"connect-src {' '.join(connect)}; frame-src https://challenges.cloudflare.com; form-action 'self'; frame-ancestors 'none'; "
-            "base-uri 'self'; object-src 'none'; manifest-src 'self'" + ("" if DEV else "; upgrade-insecure-requests"))
+    connect += [o for o in (origin(PUBLIC["formEndpoint"]), origin(PUBLIC["sessionsUrl"])) if o and o not in connect]
+    turnstile = bool(PUBLIC["turnstileSiteKey"])
+    cf = " https://challenges.cloudflare.com" if turnstile else ""
+    return (f"default-src 'self'; script-src 'self'{cf}; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; "
+            f"connect-src {' '.join(connect)}; " + (f"frame-src{cf}; " if turnstile else "") + "form-action 'self'; "
+            + ("" if meta else "frame-ancestors 'none'; ")
+            + "base-uri 'self'; object-src 'none'; manifest-src 'self'" + ("" if DEV else "; upgrade-insecure-requests"))
 
 
 def write_static():
@@ -1392,13 +1476,19 @@ def write_static():
     with open(os.path.join(OUT, "sitemap.xml"), "w", encoding="utf-8") as fh:
         fh.write('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">'
                  + "".join(urls) + "</urlset>\n")
-    disallow = "".join(f"Disallow: {R.page(k, lg)}\n" for k in ("inscription", "compte", "paiement") for lg in LANGS)
+    private = ["inscription"] + (["compte"] if PUBLIC["accounts"] else []) + (["paiement"] if PUBLIC["onlinePayment"] else [])
+    disallow = "".join(f"Disallow: {BASE}{R.page(k, lg)}\n" for k in private for lg in LANGS)
     with open(os.path.join(OUT, "robots.txt"), "w") as fh:
-        fh.write(f"User-agent: *\nAllow: /\nDisallow: /api/\n{disallow}\nSitemap: {CANON}/sitemap.xml\n")
+        if PREVIEW:  # aperçu (GitHub Pages sans domaine) : rien n'est indexé
+            fh.write("User-agent: *\nDisallow: /\n")
+        else:
+            fh.write(f"User-agent: *\nAllow: /\nDisallow: {BASE}/api/\n{disallow}\nSitemap: {CANON}/sitemap.xml\n")
     with open(os.path.join(OUT, "site.webmanifest"), "w") as fh:
-        json.dump({"name": "Centre CFS", "short_name": "Centre CFS", "lang": "fr-BE", "start_url": "/", "display": "standalone",
+        json.dump({"name": "Centre CFS", "short_name": "Centre CFS", "lang": "fr-BE", "start_url": BASE + "/", "scope": BASE + "/", "display": "standalone",
                    "background_color": "#FFFFFF", "theme_color": "#0D4A8C",
-                   "icons": [{"src": "/icon-192.png", "sizes": "192x192", "type": "image/png"}, {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png"}]}, fh)
+                   "icons": [{"src": BASE + "/icon-192.png", "sizes": "192x192", "type": "image/png"}, {"src": BASE + "/icon-512.png", "sizes": "512x512", "type": "image/png"}]}, fh)
+    # GitHub Pages : servir les fichiers tels quels (pas de traitement Jekyll)
+    open(os.path.join(OUT, ".nojekyll"), "w").close()
     # En-têtes de sécurité et de cache (Cloudflare Workers, ressources statiques)
     headers = f"""/*
   Strict-Transport-Security: max-age=31536000; includeSubDomains
@@ -1470,8 +1560,10 @@ def main():
         build_legal(lang)
         build_plan(lang)
         build_404(lang)
-        build_paiement(lang)
-        build_account_pages(lang)
+        if PUBLIC["onlinePayment"]:
+            build_paiement(lang)
+        if PUBLIC["accounts"]:
+            build_account_pages(lang)
     write_static()
     write_worker_data()
     per_lang = {lg: sum(1 for p in PAGES if p[0] == lg) for lg in LANGS}

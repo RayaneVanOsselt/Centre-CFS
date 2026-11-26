@@ -20,3 +20,8 @@ supabase/.branches/
 # Système
 .DS_Store
 Thumbs.db
+
+# Claude Code (dossiers de travail locaux)
+.claude/worktrees/
+.claude/launch.json
+.claude/settings.local.json
