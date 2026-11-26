@@ -1,7 +1,7 @@
 # Fichiers à fournir
 
 Un fichier manquant ne bloque rien : le site affiche « Sur devis », « Nous consulter » ou un emplacement propre,
-et la liste à jour se trouve dans `docs/A-COMPLETER.md`.
+et la liste à jour se trouve dans `docs/RAPPORT-IMPORT.md` (régénéré à chaque construction).
 
 | Fichier | État au 26/11/2026 | Remarque |
 |---|---|---|
@@ -15,4 +15,4 @@ et la liste à jour se trouve dans `docs/A-COMPLETER.md`.
 | `logos-partenaires/` | Vide | Uniquement avec autorisation écrite |
 | `cgv.md` | Manquant | Un brouillon « à valider juridiquement » est publié en attendant |
 | `traductions-relues/` | Vide | Après relecture des textes NL et EN |
-| `.dev.vars` (à la racine, jamais dans Git) | À créer | Copier `.dev.vars.example` et remplir (voir `docs/SETUP.md`) |
+| `.dev.vars` (à la racine, jamais dans Git) | À créer | Facultatif : copier `.dev.vars.example` et remplir (voir le `README.md`) |

@@ -1,0 +1,27 @@
+# Configuration locale pour `python3 site/build.py --dev` (copier ce fichier en `.dev.vars`, jamais dans Git).
+# Aucune de ces valeurs n'est secrète : elles finissent toutes dans le site publié (assets/js/site-data.*.js).
+# Sur GitHub, les mêmes noms se règlent dans Settings › Secrets and variables › Actions › Variables.
+
+# Adresse et chemin de base du site (GitHub Pages sans domaine : https://<compte>.github.io/Centre-CFS et /Centre-CFS)
+SITE_URL=http://localhost:8765/Centre-CFS
+BASE_PATH=/Centre-CFS
+
+# Destinataire des demandes préparées par e-mail (contact, devis, inscriptions)
+FORM_EMAIL=info@centrecfs.be
+
+# Facultatif : adresse qui reçoit les formulaires en JSON (Formspree, Worker…). Vide = e-mail pré-rempli.
+FORM_ENDPOINT=
+
+# Facultatif : liste publique des sessions avec les places en direct ({ "status": "ok", "sessions": [...] })
+SESSIONS_PUBLIC_URL=
+
+# Taux de TVA des formations (21 % par défaut, à confirmer par le comptable)
+VAT_RATE=0.21
+
+# Fonctions qui demandent un serveur (Worker Cloudflare, Supabase, Mollie) : laisser à 0 sur GitHub Pages.
+ACCOUNTS_ENABLED=0
+ONLINE_PAYMENT_ENABLED=0
+CHATBOT_ENABLED=0
+SUPABASE_URL=
+SUPABASE_PUBLISHABLE_KEY=
+TURNSTILE_SITE_KEY=

@@ -127,3 +127,9 @@
 .pay-card[data-state="paid"] .pay-spinner, .pay-card[data-state="confirmed"] .pay-spinner { border-color: var(--vert); background: var(--vert); }
 .pay-card[data-state="failed"] .pay-spinner, .pay-card[data-state="expired"] .pay-spinner, .pay-card[data-state="unknown"] .pay-spinner, .pay-card[data-state="refund"] .pay-spinner { border-color: var(--rouge); background: var(--rouge); }
 .pay-card[data-state="invoice"] .pay-spinner, .pay-card[data-state="pending"] .pay-spinner { border-color: var(--jaune); background: var(--jaune); }
+
+/* ---------- Envoi par e-mail (site statique) ---------- */
+.form-status .btn-row { margin-top: var(--s-4); }
+.form-status .btn svg { width: 18px; height: 18px; }
+.mail-hint { margin: var(--s-4) 0 0; }
+.mail-preview { margin: var(--s-3) 0 0; padding: var(--s-4); max-height: 18rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: 400 var(--t-s)/1.55 var(--f-texte); color: var(--encre); background: var(--blanc); border: 1px solid var(--ligne); border-radius: var(--r-carte); }

@@ -143,3 +143,7 @@
 /* Filtres de la liste */
 .filters--sessions { grid-template-columns: minmax(0, 1fr); }
 .filters--sessions select { max-width: 28rem; }
+.permit__status { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .6rem; }
+.wss-card--empty svg { width: 36px; height: 36px; color: var(--bleu); }
+.wss-card--empty p { margin: 0; color: var(--acier); }
+.board-next-label svg { width: 17px; height: 17px; flex: none; color: var(--bleu); }
