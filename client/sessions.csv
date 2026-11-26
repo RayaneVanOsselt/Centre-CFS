@@ -1,0 +1,8 @@
+id;formation;debut;fin;heure_debut;heure_fin;lieu;capacite;langue;statut;publiee;source
+;vca-base;2026-11-26;;08:30;17:00;engis;;fr;Ouverte;oui;catalogue 2026-2027 fiche 01
+;vca-base;2026-12-10;;08:30;17:00;charleroi;;fr;Ouverte;oui;catalogue 2026-2027 fiche 01
+;vca-ligne-hierarchique;2026-11-26;2026-11-27;08:30;17:00;engis;;fr;Ouverte;oui;catalogue 2026-2027 fiche 02
+;vca-ligne-hierarchique;2026-12-10;2026-12-11;08:30;17:00;charleroi;;fr;Ouverte;oui;catalogue 2026-2027 fiche 02
+;vca-ligne-hierarchique;2026-12-14;2026-12-15;08:30;17:00;engis;;fr;Ouverte;oui;catalogue 2026-2027 fiche 02
+;ba4;2026-12-07;;08:30;16:30;engis;;fr;Ouverte;oui;catalogue 2026-2027 fiche 13
+;ba5;2026-12-07;;08:30;16:30;engis;;fr;Ouverte;oui;catalogue 2026-2027 fiche 14

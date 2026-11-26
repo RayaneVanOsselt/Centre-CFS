@@ -1,0 +1,2 @@
+Déposez ici les relectures des traductions (NL et EN) : une copie corrigée de docs/TRADUCTIONS-A-RELIRE.md,
+ou des remarques par page. Les textes sont dans site/content/nl.py, site/content/en.py et site/content/ui.*.json.

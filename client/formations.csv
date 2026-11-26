@@ -1,0 +1,23 @@
+slug;domaine;titre;prix_htva;duree;horaires;capacite_defaut;reservable_en_ligne;lieux;validite;source
+vca-base;vca;VCA Base;250;1 jour (8 h);8 h 30 – 17 h, examen compris;;oui;engis charleroi intra;10 ans;catalogue 2026-2027 fiche 01
+vca-ligne-hierarchique;vca;VCA Cadre;400;2 jours;8 h 30 – 17 h;;oui;engis charleroi intra;10 ans;catalogue 2026-2027 fiche 02
+conseiller-prevention-base;prevention;Conseiller en prévention – niveau base;;6 jours (42 h);;;oui;engis intra;;catalogue 2026-2027 fiche 03
+recyclage-conseiller-prevention;prevention;Recyclage conseiller en prévention;;8 h;;;oui;engis intra;Recyclage annuel;catalogue 2026-2027 fiche 04
+equipier-premiere-intervention;incendie;Équipier de première intervention;;1 jour (½ théorie, ½ pratique);;;oui;engis intra;;catalogue 2026-2027 fiche 05
+recyclage-equipier-premiere-intervention;incendie;Recyclage équipier de première intervention;;;;;oui;engis intra;;catalogue 2026-2027 fiche 06
+initiation-feu;incendie;Initiation feu et extincteurs;;;;;oui;engis intra;;catalogue 2026-2027 fiche 07
+ari-appareil-respiratoire;incendie;A.R.I. – appareil respiratoire isolant;;;;;oui;engis intra;;catalogue 2026-2027 fiche 08
+secourisme-base;secours;Secourisme de base;;;;;oui;engis intra;Recyclage de 4 h chaque année;catalogue 2026-2027 fiche 09
+rappel-secourisme;secours;Rappel secourisme;;½ jour;;;oui;engis intra;Annuel (ou tous les deux ans sous conditions);catalogue 2026-2027 fiche 10
+initiation-premiers-soins;secours;Initiation aux premiers soins;;2 h;;15;oui;intra engis;;catalogue 2026-2027 fiche 11 (groupes de 15 au maximum)
+dea-defibrillateur;secours;D.E.A. – défibrillateur;;;;;oui;intra engis;;catalogue 2026-2027 fiche 12
+ba4;electricite;BA4 – personnel averti;275;1 jour;8 h 30 – 16 h 30;;oui;engis intra;Transférable d'une entreprise à l'autre;catalogue 2026-2027 fiche 13
+ba5;electricite;BA5 – personnel qualifié;275;1 jour;8 h 30 – 16 h 30;;oui;engis intra;Transférable d'une entreprise à l'autre;catalogue 2026-2027 fiche 14
+produits-dangereux;dangereux;Produits dangereux;;;;;oui;engis intra;;catalogue 2026-2027 fiche 15
+amiante;dangereux;Amiante;;;;;oui;engis intra;;catalogue 2026-2027 fiche 16
+ergonomie;ergonomie;Ergonomie au poste de travail;;;;;oui;intra engis;;catalogue 2026-2027 fiche 17
+harnais;equipements;Harnais et travail en hauteur;;;;;oui;engis intra;;catalogue 2026-2027 fiche 18
+nacelle;equipements;Nacelle élévatrice (PEMP);;;;;oui;engis intra;;catalogue 2026-2027 fiche 19
+chariot-elevateur;equipements;Chariot élévateur;;;;;oui;engis intra;;catalogue 2026-2027 fiche 20
+echafaudage;equipements;Échafaudage;;;;;oui;engis intra;;catalogue 2026-2027 fiche 21
+pont-roulant;equipements;Pont roulant;;;;;oui;engis intra;;catalogue 2026-2027 fiche 22

@@ -1,0 +1,4 @@
+Logos des partenaires (SVG ou PNG transparent), UNIQUEMENT avec une autorisation écrite d'utilisation.
+Nommez le fichier comme le partenaire (technifutur.svg, akt.svg…) et indiquez l'autorisation dans autorisations.csv :
+fichier;partenaire;autorisation_le;contact
+Sans autorisation, le site affiche le nom du partenaire en texte (comme aujourd'hui).

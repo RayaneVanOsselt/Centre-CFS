@@ -1,0 +1,22 @@
+# Dépendances et sorties générées
+node_modules/
+dist/
+.wrangler/
+test-results/
+playwright-report/
+site/tests/.pytest_cache/
+.pytest_cache/
+__pycache__/
+*.pyc
+
+# Secrets : JAMAIS dans Git
+.dev.vars
+.env
+.env.*
+!.env.example
+supabase/.temp/
+supabase/.branches/
+
+# Système
+.DS_Store
+Thumbs.db
