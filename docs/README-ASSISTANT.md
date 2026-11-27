@@ -8,13 +8,36 @@ Deux couches (mission, section 8) :
    (liens du site seulement, aucun montant absent de la base), `assistant.js` (panneau), `launcher.js` (seul script
    chargé d'emblée). Base de connaissances générée à chaque construction par `site/tools/build_kb.py`
    (`dist/assets/data/kb.*.json` et `worker/src/generated/kb.json`).
-2. **Couche IA** (active avec le Worker : `CHATBOT_PROVIDER` = `workers-ai`, modèle gratuit
-   `@cf/google/gemma-4-26b-a4b-it` ; `claude` en option payante ; `local` pour la couper) : appelée
-   seulement si la confiance locale n'est pas élevée ; le Worker refait la recherche dans SA copie de la base,
-   appelle le fournisseur (`worker/src/lib/chat-provider.js`), revalide la réponse (adresses, montants) ; sinon
-   réponse locale. Workers AI : choisir au moment de l'activation un modèle multilingue **disponible sur le plan
-   gratuit** et fixer `CHATBOT_DAILY_LIMIT` (à mesurer). Claude : `claude-haiku-5-5`, clé `ANTHROPIC_API_KEY` en secret,
-   avec une limite de dépenses dans la console Anthropic.
+2. **Rédaction par l'IA** (avec le Worker ; même principe que l'assistant Wisy Safety, DECISIONS.md D-016) : pour
+   chaque vraie question, le navigateur envoie à `POST /api/chat` la question, la **réponse locale déjà vérifiée**
+   (brouillon), la formation reconnue, les 6 derniers échanges (questions de suite : « et pour le BA5 ? ») et les
+   sessions publiques. Le Worker refait la recherche dans **sa** copie de la base (jamais les extraits du navigateur),
+   met la fiche de la formation en tête, puis appelle le fournisseur (`worker/src/lib/chat-provider.js`) :
+
+   | `CHATBOT_PROVIDER` | Modèle | Coût |
+   |---|---|---|
+   | `claude` (par défaut) | `CHATBOT_MODEL` = `claude-opus-5-5` (Claude, API Anthropic), sortie JSON imposée par un schéma, invite système en cache, repli serveur si un filtre refuse | payant à l'usage, **seulement si le secret `ANTHROPIC_API_KEY` existe** |
+   | relais automatique | `WORKERS_AI_MODEL` = `@cf/google/gemma-4-26b-a4b-it` (Workers AI) : utilisé sans clé Claude, ou si Claude échoue (panne, quota, réponse rejetée) | gratuit (10 000 « neurons »/jour) |
+   | `local` | aucune IA | 0 € |
+
+   La réponse de l'IA est **revalidée deux fois** (Worker puis navigateur) : adresses du site seulement, aucun montant
+   absent de la base, longueur bornée. Au moindre doute, la réponse locale vérifiée s'affiche. Ne passent **jamais**
+   par l'IA (réponse fixe) : tentative de manipulation, « êtes-vous humain ? », salutations, remerciements, hors sujet,
+   contact, fermetures, obligations légales, agrément et taux de réussite non confirmés, chèques-formation, mot de passe.
+
+   Coût indicatif avec Claude Opus 5.5 (4 $ / 20 $ par million de jetons en entrée / sortie, lecture du cache 0,20 $) :
+   environ 3 000 jetons en entrée et 250 en sortie par réponse, soit **1 à 3 centimes de dollar par réponse**.
+   Plafond `CHATBOT_DAILY_LIMIT` (200 réponses de l'IA par jour) : au pire environ 6 $ par jour ; usage réaliste
+   (20 à 30 questions par jour) : 10 à 20 $ par mois. Moins cher : `CHATBOT_MODEL` = `claude-sonnet-5-5` (moitié prix)
+   ou `claude-haiku-5-5` (environ 40 fois moins cher). Toujours fixer une **limite de dépenses** dans la console
+   Anthropic.
+
+Panneau (`assistant.js`, `assistant.css`) : en-tête « assistant automatique · informations vérifiées du site »,
+indicateur « l'assistant écrit… », mention « Rédigé par l'IA à partir des informations vérifiées du site » sous
+chaque réponse de l'IA, fiches et sources vérifiées gardées, avis « utile / pas utile » (événement anonyme
+`cfs:analytics` : intention, oui/non, IA ou non ; jamais le texte). Lanceur (`launcher.js`) : avatar, pastille « IA »
+quand la couche IA est active, bulle « Besoin d'aide ? » une fois par visite (jamais sur les pages compte ou
+formulaire), deuxième clic = fermeture.
 
 Affiché par défaut (GitHub Pages : cœur local seul ; Cloudflare : cœur local + IA). `CHATBOT_ENABLED=0` pour le masquer. Mention « assistant automatique » affichée avant le premier
 message (AI Act, art. 50). Transmission à l'équipe : mini-formulaire → `POST /api/contact` (type Assistant), avec le
@@ -22,3 +45,5 @@ Worker seulement.
 
 Évaluation : `npm run eval:chatbot` (rapport `docs/chatbot-tests.md`) ; aussi dans `npm test` et dans le lanceur de
 tests du navigateur (`tests/browser/`). Résultat actuel : 68 questions, véracité 30/30, intention et adresse 68/68.
+Essai du circuit complet sans clé ni coût : `tests/browser/e2e.html?ai=1` (IA simulée par le relais Workers AI), puis
+une page du site dans un autre onglet.

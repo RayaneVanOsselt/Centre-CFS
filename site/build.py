@@ -500,8 +500,11 @@ def page(lang, path, title, desc, body, *, alternates=None, active=None, jsonld=
         robots = "noindex, nofollow"
     js_html = "".join(f'<script src="{asset(s) if not s.startswith("/assets/js/site-data") else s + "?v=" + DATA_V[lang]}" defer></script>' for s in js)
     progress_html = '<div class="progress" aria-hidden="true"></div>' if progress else ""
-    chat = (f'<button class="chat-launcher" type="button" data-chat-open hidden aria-haspopup="dialog">'
-            f'<span class="chat-launcher-dot" aria-hidden="true"></span>{icon("chat")}<span>{E(t(lang, "chat.open"))}</span></button>') if PUBLIC["chatbot"] else ""
+    # Lanceur de l'assistant : panneau d'information rond (« i » façon ISO 7010), pastille IA, point de disponibilité
+    chat = (f'<button class="chat-launcher" type="button" data-chat-open hidden aria-haspopup="dialog" aria-label="{E(t(lang, "chat.open_long"))}">'
+            f'<span class="chat-avatar" aria-hidden="true"><span class="chat-avatar-i">i</span><span class="chat-launcher-dot"></span></span>'
+            f'<span class="chat-launcher-text">{E(t(lang, "chat.open"))}</span>'
+            f'<span class="chat-badge" data-chat-badge hidden aria-hidden="true">{E(t(lang, "chat.badge"))}</span></button>') if PUBLIC["chatbot"] else ""
     doc = f'''<!doctype html>
 <html lang="{R.HTML_LANG[lang]}" data-lang="{lang}">
 <head>
@@ -611,11 +614,16 @@ def price_text(f, lang):
     return f'{money(f["prix"], lang)} {t(lang, "common.htva")}' if f["prix"] else t(lang, "common.quote")
 
 
-def f_card(f, lang):
+CARD_SIZES = "(min-width: 1240px) 380px, (min-width: 700px) 46vw, 100vw"
+
+
+def f_card(f, lang, media=True):
+    """Carte formation. media=False là où la page montre déjà la photo du domaine en grand (pas de doublon)."""
     d = T[lang].DOMAINES[f["domain"]]
     search = " ".join([f["title"], f["full"], d["name"], f["pitch"], f.get("kw", "")])
+    thumb = picture(IMG.FORMATION_IMAGE.get(f["slug"]) or IMG.DOMAIN_IMAGE.get(f["domain"]), lang, sizes=CARD_SIZES, cls="card-media", alt="") if media else ""
     return f'''<li><article class="f-card spot" data-item data-training="{f["slug"]}" data-domain="{f["domain"]}" data-lieux="{" ".join(f["lieux"])}" data-search="{E(search)}">
-<div class="f-card-top">{dsign(f["domain"])}<span>{E(d["name"])}</span></div>
+{thumb}<div class="f-card-top">{dsign(f["domain"])}<span>{E(d["name"])}</span></div>
 <h3><a href="{f["url"]}">{E(f["title"])}</a></h3>
 <p>{E(f["pitch"])}</p>
 <dl><div><dt>{E(t(lang, "common.duration"))}</dt><dd>{E(f["duree"] or t(lang, "common.consult"))}</dd></div><div><dt>{E(t(lang, "common.price"))}</dt><dd>{E(price_text(f, lang))}</dd></div><div><dt>{E(t(lang, "common.next_date"))}</dt><dd data-next-for="{f["slug"]}">{E(t(lang, "common.on_request"))}</dd></div></dl>
@@ -639,8 +647,9 @@ _IMG_META_PATH = os.path.join(HERE, "content", "images.generated.json")
 IMG_META = json.load(open(_IMG_META_PATH, encoding="utf-8")) if os.path.exists(_IMG_META_PATH) else {}
 
 
-def picture(key, lang, sizes="(min-width: 1100px) 760px, 100vw", cls="media", eager=False):
-    """Photo du registre (site/content/images.py) : <picture> AVIF + WebP en 3:2, ou rien si elle n'existe pas."""
+def picture(key, lang, sizes="(min-width: 1100px) 760px, 100vw", cls="media", eager=False, alt=None):
+    """Photo du registre (site/content/images.py) : <picture> AVIF + WebP en 3:2, ou rien si elle n'existe pas.
+    alt="" : vignette décorative d'une carte dont le titre dit déjà tout (évite de répéter le texte aux lecteurs d'écran)."""
     if not key or key not in IMG_META or key not in IMG.IMAGES:
         return ""
     dims = IMG_META[key]["sizes"]
@@ -651,7 +660,7 @@ def picture(key, lang, sizes="(min-width: 1100px) 760px, 100vw", cls="media", ea
     load = 'fetchpriority="high"' if eager else 'loading="lazy"'
     return (f'<figure class="{cls}"><picture><source type="image/avif" srcset="{srcset("avif")}" sizes="{sizes}">'
             f'<source type="image/webp" srcset="{srcset("webp")}" sizes="{sizes}">'
-            f'<img src="/assets/img/photos/{key}-960.webp" alt="{E(IMG.IMAGES[key]["alt"][lang])}" width="{w}" height="{h}" {load} decoding="async">'
+            f'<img src="/assets/img/photos/{key}-960.webp" alt="{E(IMG.IMAGES[key]["alt"][lang] if alt is None else alt)}" width="{w}" height="{h}" {load} decoding="async">'
             f'</picture></figure>')
 
 
@@ -709,7 +718,8 @@ def build_home(lang):
         n = len(dd["formations"])
         count = t(lang, "common.formation_count_one" if n == 1 else "common.formation_count", n=n)
         items = "".join(f'<li><a href="{f["url"]}">{E(f["title"])}</a></li>' for f in dd["formations"])
-        domains.append(f'''<article class="domain spot domain--{d["color"]}"><div class="domain-top">{dsign(d["slug"])}<div><h3><a href="{dd["url"]}">{E(dd["name"])}</a></h3><p class="count">{E(count)}</p></div></div><ul>{items}</ul></article>''')
+        dimg = picture(IMG.DOMAIN_IMAGE.get(d["slug"]), lang, sizes="(min-width: 1240px) 290px, (min-width: 700px) 46vw, 100vw", cls="card-media", alt="")
+        domains.append(f'''<article class="domain spot domain--{d["color"]}">{dimg}<div class="domain-top">{dsign(d["slug"])}<div><h3><a href="{dd["url"]}">{E(dd["name"])}</a></h3><p class="count">{E(count)}</p></div></div><ul>{items}</ul></article>''')
     why = "".join(f'<div class="bento-card spot{" bento-card--wide" if i in (0, 3) else ""}"><span class="atout-ico">{icon(ic)}</span><h3>{E(ti)}</h3><p>{E(te)}</p>'
                   + (f'<ul class="langues">{"".join(f"<li>{E(x)}</li>" for x in tx.LANGUES)}</ul>' if ic == "globe" else "") + "</div>"
                   for i, (ic, ti, te) in enumerate(p["why"]))
@@ -875,7 +885,7 @@ def build_formation(slug, lang):
     related = [x for x in d["formations"] if x["slug"] != slug]
     if len(related) < 2:
         related += [formation(x["slug"], lang) for x in C.FORMATIONS if x["domain"] != f["domain"] and x["domain"] in ("vca", "secours", "incendie")][: 3 - len(related)]
-    rel = "".join(f_card(x, lang) for x in related[:3])
+    rel = "".join(f_card(x, lang, media=False) for x in related[:3])
     faq = f'<section aria-labelledby="t-faq"><h2 id="t-faq">{E(p["faq"])}</h2>{faq_html(f["faq"])}</section>' if f["faq"] else ""
     tags = [f["duree"]] if f["duree"] else []
     tags += [tx.LIEUX[k]["name"] for k in f["lieux"]]
@@ -936,7 +946,7 @@ def build_domain(slug, lang):
     d = domain(slug, lang)
     p = P(lang, "domain")
     crumbs = [home_crumb(lang), (t(lang, "nav.formations"), R.page("formations", lang)), (d["name"], d["url"])]
-    cards = "".join(f_card(f, lang) for f in d["formations"])
+    cards = "".join(f_card(f, lang, media=False) for f in d["formations"])
     faqs = [qa for f in d["formations"] for qa in f["faq"]][:6]
     faq = f'<section class="section" aria-labelledby="t-f"><div class="wrap-narrow"><h2 id="t-f">{E(P(lang, "faq", "title"))}</h2>{faq_html(faqs)}</div></section>' if faqs else ""
     head = (f'<div class="page-head page-head--domain"><div class="page-head-bg" aria-hidden="true"></div><div class="wrap">{crumbs_html(lang, crumbs)}'
@@ -1254,7 +1264,8 @@ def build_articles(lang):
         txt = tx.ARTICLES[a["key"]]
         url = R.article(a["key"], lang)
         tm = f'<time datetime="{a["date"]}">{E(long_date(a["date"], lang))}</time>' if a["date"] else f'<span class="tag">{E(p["news"])}</span>'
-        cards.append(f'<li><article class="post spot">{tm}<h2><a href="{url}">{E(txt["title"])}</a></h2><p>{E(txt["desc"])}</p></article></li>')
+        aimg = picture(IMG.ARTICLE_IMAGE.get(a["key"]), lang, sizes=CARD_SIZES, cls="card-media", alt="")
+        cards.append(f'<li><article class="post spot">{aimg}{tm}<h2><a href="{url}">{E(txt["title"])}</a></h2><p>{E(txt["desc"])}</p></article></li>')
     body = f'''{page_head(lang, crumbs, p["title"], p["lead"])}
 <section class="section"><div class="wrap"><ul class="post-list">{"".join(cards)}</ul></div></section>'''
     page(lang, R.page("actualites", lang), p["meta_title"], p["meta_desc"], body, alternates=all_alts("actualites"), crumbs=crumbs, prio="0.6")
@@ -1270,7 +1281,7 @@ def build_articles(lang):
                 parts.append(f"<h2>{E(val)}</h2>")
             elif kind == "ul":
                 parts.append("<ul>" + "".join(f"<li>{E(x)}</li>" for x in val) + "</ul>")
-        rel = "".join(f_card(formation(s, lang), lang) for s in a["related"])
+        rel = "".join(f_card(formation(s, lang), lang, media=False) for s in a["related"])
         rel_html = f'<section class="section section--papier"><div class="wrap"><h2>{E(p["related"])}</h2><ul class="related">{rel}</ul></div></section>' if rel else ""
         meta = f'<p class="muted"><time datetime="{a["date"]}">{E(p["published"].format(date=long_date(a["date"], lang)))}</time></p>' if a["date"] else ""
         body = f'''{page_head(lang, cr, txt["title"], None, meta, narrow=True)}

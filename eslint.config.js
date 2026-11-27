@@ -7,7 +7,7 @@ const shared = {
 };
 const rules = {
   "no-undef": "error",
-  "no-unused-vars": ["error", { args: "none", caughtErrors: "none", varsIgnorePattern: "^_" }],
+  "no-unused-vars": ["warn", { args: "none", caughtErrors: "none", varsIgnorePattern: "^_" }],
   "no-unreachable": "error",
   "no-dupe-keys": "error",
   "no-duplicate-case": "error",

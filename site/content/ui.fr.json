@@ -584,5 +584,16 @@
   "search.type_faq": "Question fréquente",
   "search.type_article": "Guide",
   "search.type_page": "Page",
-  "search.meta_desc": "Recherchez une formation, une question ou une information sur le site du Centre CFS."
+  "search.meta_desc": "Recherchez une formation, une question ou une information sur le site du Centre CFS.",
+  "chat.bubble_title": "Besoin d'aide ?",
+  "chat.bubble_text": "Posez votre question à notre assistant : formations, dates, prix.",
+  "chat.bubble_close": "Fermer l'invitation",
+  "chat.badge": "IA",
+  "chat.subtitle": "Assistant automatique · informations vérifiées du site",
+  "chat.ai_label": "Rédigé par l'IA à partir des informations vérifiées du site",
+  "chat.feedback_q": "Cette réponse vous a aidé ?",
+  "chat.feedback_yes": "Oui, utile",
+  "chat.feedback_no": "Non, pas vraiment",
+  "chat.feedback_thanks": "Merci pour votre retour.",
+  "chat.open_long": "Ouvrir l'assistant du Centre CFS"
 }

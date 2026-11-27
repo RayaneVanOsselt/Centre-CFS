@@ -34,9 +34,12 @@ SITE_URL = "https://centrecfs.be"
 EMAILJS_MONTHLY_QUOTA = "200"
 TEAM_NOTIFICATION_EMAIL = "info@centrecfs.be"
 ONLINE_PAYMENT_ENABLED = "0"
-CHATBOT_PROVIDER = "workers-ai"
-# Modèle cité par Cloudflare comme disponible sur le plan GRATUIT (changelog du 28/07/2026) ; ≈ 40 neurons par réponse
-CHATBOT_MODEL = "@cf/google/gemma-4-26b-a4b-it"
+# IA du chatbot : Claude (Anthropic) si le secret ANTHROPIC_API_KEY existe, sinon (ou en cas d'échec) Workers AI gratuit.
+# « local » coupe l'IA. Modèles : CHATBOT_MODEL (Claude) et WORKERS_AI_MODEL (Workers AI, plan gratuit, changelog du
+# 28/07/2026). Coûts et réglages : docs/README-ASSISTANT.md.
+CHATBOT_PROVIDER = "claude"
+CHATBOT_MODEL = "claude-opus-5-5"
+WORKERS_AI_MODEL = "@cf/google/gemma-4-26b-a4b-it"
 CHATBOT_DAILY_LIMIT = "200"
 VAT_RATE = "0.21"
 

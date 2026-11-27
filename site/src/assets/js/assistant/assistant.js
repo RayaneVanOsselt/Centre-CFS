@@ -2,8 +2,10 @@
 /**
  * Panneau de l'assistant (mission 8.8) : dialogue accessible, non modal sur ordinateur, plein écran modal sur
  * téléphone (Échap ferme, focus bouclé puis rendu au lanceur), mention « assistant automatique » avant le premier
- * message, réponses du cœur local (responder.js), couche IA facultative (Worker POST /api/chat) seulement si la
- * confiance locale n'est pas élevée, transmission volontaire de la question à l'équipe (POST /api/contact).
+ * message, réponses du cœur local (responder.js), puis rédaction par l'IA (Worker POST /api/chat, DECISIONS.md D-016)
+ * pour chaque vraie question : l'IA reçoit la réponse locale vérifiée, le fil de la conversation et les sessions, et sa
+ * réponse est revalidée ici ; intentions sensibles (sécurité, obligations légales, agrément…) : réponse locale seule.
+ * Transmission volontaire de la question à l'équipe (POST /api/contact). Avis « utile / pas utile » anonyme.
  * Texte rendu par textContent uniquement ; liens créés à partir d'adresses validées. Rien n'est gardé après
  * la fermeture de l'onglet (sessionStorage au plus).
  */
@@ -19,6 +21,8 @@ const t = (k, v) => (I ? I.t(k, v) : k);
 const lang = (I && I.lang()) || document.documentElement.getAttribute("data-lang") || "fr";
 const MAX_TURNS = 20;
 const STORE = "cfs-assistant";
+/** Intentions à réponse fixe et vérifiée : jamais réécrites par l'IA (sécurité, cadre légal, données non confirmées). */
+const FIXED = new Set(["injection", "human", "greeting", "thanks", "offtopic", "contact", "closure", "unconfirmed", "legal", "cheques", "password"]);
 
 let panel = null, launcher = null, log = null, input = null, form = null, kbs = {}, kb = null, turns = 0, history = [];
 let sessionsReady = null;
@@ -72,14 +76,26 @@ function build() {
   const head = el("header", "chat-head");
   const sign = el("span", "chat-sign", "i");
   sign.setAttribute("aria-hidden", "true");
+  const titles = el("div", "chat-titles");
   const title = el("h2", "chat-title", t("chat.title"));
   title.id = "chat-title";
-  const reset = el("button", "chat-icon-btn chat-reset", t("chat.reset"));
+  titles.append(title, el("p", "chat-subtitle", t("chat.subtitle")));
+  // Nouvelle conversation : icône (flèche circulaire) avec libellé accessible et info-bulle
+  const reset = el("button", "chat-icon-btn chat-reset");
   reset.type = "button";
+  reset.setAttribute("aria-label", t("chat.reset"));
+  reset.title = t("chat.reset");
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", "M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7");
+  svg.append(path);
+  reset.append(svg);
   const close = el("button", "chat-icon-btn chat-close", "×");
   close.type = "button";
   close.setAttribute("aria-label", t("chat.close"));
-  head.append(sign, title, reset, close);
+  head.append(sign, titles, reset, close);
   const notice = el("p", "chat-notice", t("chat.ai_notice"));
   log = el("div", "chat-log");
   log.setAttribute("aria-live", "polite");
@@ -134,6 +150,7 @@ function setInert(on) {
 }
 
 function hide() {
+  if (!panel || panel.hidden) return;
   panel.hidden = true;
   panel.removeAttribute("aria-modal");
   setInert(false);
@@ -153,8 +170,39 @@ function bubble(who, text) {
   return b;
 }
 
+/** Indicateur « l'assistant écrit… » (trois points animés ; texte lu par les lecteurs d'écran). */
+function typing() {
+  const b = el("div", "chat-msg chat-msg--bot chat-typing");
+  b.append(el("span", "sr-only", t("chat.thinking")));
+  for (let i = 0; i < 3; i++) b.append(el("span", "chat-dot"));
+  log.append(b);
+  log.scrollTop = log.scrollHeight;
+  return b;
+}
+
+/** Avis anonyme sur la dernière réponse : seul l'événement (intention, oui/non, IA ou non) est émis, jamais le texte. */
+function feedback(b, a) {
+  for (const old of Array.from(log.querySelectorAll(".chat-feedback"))) old.remove();
+  const row = el("div", "chat-feedback");
+  row.append(el("span", "", t("chat.feedback_q")));
+  const vote = (value) => () => {
+    try {
+      document.dispatchEvent(new CustomEvent("cfs:analytics", { detail: { event: "assistant_feedback", value, intent: a.meta.intent, ai: !!a.meta.ai } }));
+    } catch { /* sans importance */ }
+    row.replaceChildren(el("span", "chat-feedback-thanks", t("chat.feedback_thanks")));
+  };
+  for (const [key, value] of [["chat.feedback_yes", "yes"], ["chat.feedback_no", "no"]]) {
+    const btn = el("button", "chat-feedback-btn", t(key));
+    btn.type = "button";
+    btn.addEventListener("click", vote(value));
+    row.append(btn);
+  }
+  b.append(row);
+}
+
 function renderAnswer(a) {
   const b = bubble("bot", a.message);
+  if (a.meta && a.meta.ai) b.classList.add("chat-msg--ai");
   if (a.cards && a.cards.length) {
     const ul = el("ul", "chat-cards");
     for (const c of a.cards) {
@@ -177,8 +225,11 @@ function renderAnswer(a) {
     });
     b.append(p);
   }
+  // Mention de transparence sous chaque réponse rédigée par l'IA
+  if (a.meta && a.meta.ai) b.append(el("p", "chat-ai-label", t("chat.ai_label")));
   // Transmission à l'équipe : seulement avec le Worker (sinon la carte « Nous contacter » suffit)
   if (a.meta && a.meta.transmit && cfg.formEndpoint) b.append(transmitButton());
+  if (a.meta && !FIXED.has(a.meta.intent)) feedback(b, a);
   if (a.suggestions && a.suggestions.length) suggestions(a.suggestions);
 }
 
@@ -217,15 +268,15 @@ async function ask(raw) {
   const old = log.querySelector(".chat-suggest");
   if (old) old.remove();
   bubble("user", q);
-  const wait = el("p", "chat-thinking", t("chat.thinking"));
-  log.append(wait);
+  const wait = typing();
   try {
     const l = detectLang(q, lang);
     if (l !== lang) await kbFor(l);
     const ses = await sessions();
     const slug = pageSlug();
     let a = answer(kb, q, { lang, slug, sessions: ses ? ses.list : null, live: ses ? ses.live : false, kbFor: (x) => kbs[x] || null });
-    if (cfg.assistant.ai && a.meta.confidence !== "high") a = (await viaAi(q, a, slug, ses)) || a;
+    // L'IA rédige chaque vraie question à partir de la réponse vérifiée ; en cas d'échec, la réponse locale reste
+    if (cfg.assistant.ai && !FIXED.has(a.meta.intent)) a = (await viaAi(q, a, ses)) || a;
     wait.remove();
     renderAnswer(a);
     history.push({ q, a: a.message });
@@ -256,23 +307,41 @@ async function turnstileToken() {
   });
 }
 
-/** Couche IA facultative : reformulation à partir des extraits locaux, revalidée ici ; sinon réponse locale. */
-async function viaAi(q, local, slug, ses) {
+/**
+ * Rédaction par l'IA (Worker) : elle reçoit la question, la réponse locale vérifiée (brouillon), la formation reconnue,
+ * le fil de la conversation et les sessions publiques ; sa réponse est revalidée ici (liens, montants, longueur).
+ * Les fiches, sources et suggestions vérifiées de la réponse locale sont gardées si l'IA n'en propose pas.
+ */
+async function viaAi(q, local, ses) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
   try {
     const base = kbs[local.meta.lang] || kb;
     const turnstile = await turnstileToken().catch(() => "");
     const r = await fetch("/api/chat", {
-      method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin",
+      method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", signal: ctrl.signal,
       body: JSON.stringify({ question: q, lang: local.meta.lang, turnstileToken: turnstile,
+        formation: local.meta.formation || "", draft: local.message,
+        history: history.slice(-6).map((h) => ({ q: String(h.q).slice(0, 600), a: String(h.a).slice(0, 900) })),
         sessions: ses ? ses.list.filter((s) => !local.meta.formation || s.training === local.meta.formation).slice(0, 3)
           .map((s) => ({ date: s.date, endDate: s.endDate, startTime: s.startTime, endTime: s.endTime, location: s.location, seatsLeft: ses.live ? s.seatsLeft : null, capacity: s.capacity, bookUrl: base.routes.inscription + "?formation=" + s.training + "&session=" + s.id })) : [] }),
     });
     const d = await r.json();
     if (!d.ok || !d.answer) return null;
-    const v = validate({ ...d.answer, meta: { ...local.meta, ai: true } }, base);
-    return v ? { ...v, meta: { ...local.meta, ai: true, confidence: "medium" } } : null;
+    const meta = { ...local.meta, ai: true, provider: (d.answer.meta && d.answer.meta.provider) || "", confidence: "medium" };
+    const v = validate({ ...d.answer, meta }, base);
+    if (!v) return null;
+    return {
+      ...v,
+      cards: v.cards.length ? v.cards : local.cards,
+      sources: v.sources.length ? v.sources : local.sources,
+      suggestions: v.suggestions.length ? v.suggestions : local.suggestions,
+      meta: { ...meta, transmit: local.meta.transmit },
+    };
   } catch {
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -356,6 +425,9 @@ function restore() {
 }
 
 /* ---------------- ouverture ---------------- */
+
+/** Ferme le panneau (deuxième clic sur le lanceur). */
+export function close() { hide(); }
 
 /** @param {HTMLElement} from  le lanceur (le focus y revient à la fermeture) */
 export async function open(from) {
