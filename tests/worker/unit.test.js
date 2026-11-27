@@ -206,20 +206,36 @@ test("IA : prix inventé, URL inconnue → réponse refusée ou nettoyée", () =
   assert.equal(validateAnswer({ message: "" }, input), null);
 });
 
-test("IA Claude : requête conforme (modèle, en-têtes, schéma JSON), refus et coupure → repli local", async () => {
+test("IA Claude : requête conforme (modèle, cache, repli serveur, fil, brouillon), refus et coupure → repli local", async () => {
   let req = null;
   const answer = { message: "VCA Base dure 1 jour.", cards: [], suggestions: [], sources: [{ title: "VCA Base", url: "/formations/vca-base/" }] };
   const reply = (body) => async (url, init) => { req = { url, init, body: JSON.parse(init.body) }; return Response.json(body); };
   const env = { CHATBOT_PROVIDER: "claude", ANTHROPIC_API_KEY: "sk-test" };
-  const input = { question: "Combien de temps dure VCA ?", lang: "fr", context: CTX, sessions: [] };
+  const input = { question: "Et combien de temps ?", lang: "fr", context: CTX, sessions: [],
+    history: [{ q: "Combien coûte le VCA Base ?", a: "VCA Base : 250 € HTVA." }], draft: "VCA Base : 1 jour (8 h)." };
   const a = await reformulate(env, input, reply({ stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify(answer) }] }));
   assert.equal(a.message, answer.message);
+  assert.equal(a.meta.provider, "claude");
   assert.equal(req.url, "https://api.anthropic.com/v1/messages");
   assert.equal(req.init.headers["x-api-key"], "sk-test");
   assert.ok(req.init.headers["anthropic-version"]);
-  assert.equal(req.body.model, "claude-haiku-5-5");
+  assert.equal(req.body.model, "claude-opus-5-5");
+  assert.equal(req.init.headers["anthropic-beta"], "server-side-fallback-2026-07-01");
+  assert.equal(req.body.fallbacks, "default");
+  assert.equal(req.body.system[0].cache_control.type, "ephemeral");
   assert.equal(req.body.output_config.format.type, "json_schema");
-  assert.match(req.body.messages[0].content, /<knowledge>/);
+  // Fil : question et réponse précédentes, puis la question avec les extraits, le brouillon vérifié et la langue
+  assert.deepEqual(req.body.messages.map((m) => m.role), ["user", "assistant", "user"]);
+  assert.equal(req.body.messages[1].content, "VCA Base : 250 € HTVA.");
+  const last = req.body.messages[2].content;
+  assert.match(last, /<knowledge>/);
+  assert.match(last, /<draft>\nVCA Base : 1 jour \(8 h\)\.\n<\/draft>/);
+  assert.match(last, /Question : Et combien de temps \?/);
+  // Modèle sans repli serveur (ex. Haiku) : ni en-tête bêta ni paramètre fallbacks
+  await reformulate({ ...env, CHATBOT_MODEL: "claude-haiku-5-5" }, input, reply({ stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify(answer) }] }));
+  assert.equal(req.body.model, "claude-haiku-5-5");
+  assert.equal(req.init.headers["anthropic-beta"], undefined);
+  assert.equal(req.body.fallbacks, undefined);
   assert.equal(await reformulate(env, input, reply({ stop_reason: "refusal", content: [] })), null);
   assert.equal(await reformulate(env, input, reply({ stop_reason: "max_tokens", content: [{ type: "text", text: '{"mess' }] })), null);
   assert.equal(await reformulate({ CHATBOT_PROVIDER: "local" }, input, async () => { throw new Error("aucun appel attendu"); }), null);
@@ -240,12 +256,44 @@ test("POST /api/chat : désactivé par défaut ; avec Claude, extraits tirés de
     const r = await (await handleApi(req({ question: "Combien coûte le VCA Base ?", lang: "fr", context: forged }), { CHATBOT_PROVIDER: "claude", ANTHROPIC_API_KEY: "sk-test" }, {})).json();
     assert.equal(r.ok, true);
     assert.match(r.answer.message, /250/);
-    const user = sent.messages[0].content;
+    const user = sent.messages[sent.messages.length - 1].content;
     assert.match(user, /vca-base/);
     assert.doesNotMatch(user, /evil\.example|ignore tout/, "les extraits envoyés par le navigateur sont ignorés");
+    // Question de suite : fil transmis (borné), formation reconnue en tête des extraits, brouillon vérifié joint
+    const long = "x".repeat(5000);
+    await handleApi(req({ question: "Et la durée ?", lang: "fr", formation: "ba4", draft: "BA4 : brouillon vérifié.",
+      history: [{ q: "Prix du BA4 ?", a: "Réponse précédente." }, { q: long, a: long }, { q: "", a: "sans question" }] }),
+    { CHATBOT_PROVIDER: "claude", ANTHROPIC_API_KEY: "sk-test" }, {});
+    assert.equal(sent.messages.length, 5, "deux échanges valides puis la question");
+    assert.ok(sent.messages[2].content.length <= 600, "textes du fil bornés");
+    const q2 = sent.messages[4].content;
+    assert.match(q2, /<draft>\nBA4 : brouillon vérifié\.\n<\/draft>/);
+    assert.ok(q2.indexOf("/formations/ba4/") > -1 && q2.indexOf("/formations/ba4/") < q2.indexOf("</knowledge>"), "fiche BA4 dans les extraits");
   } finally {
     globalThis.fetch = saved;
   }
+});
+
+test("IA : relais automatique vers Workers AI (pas de clé Claude, ou Claude en échec)", async () => {
+  const input = { question: "Prix du VCA Base ?", lang: "fr", context: CTX, sessions: [], draft: "VCA Base : 250 € HTVA." };
+  const good = { message: "Le VCA Base coûte 250 € HTVA par personne.", cards: [], suggestions: [], sources: [] };
+  const ai = { calls: [], async run(model, x) { this.calls.push({ model, x }); return { response: JSON.stringify(good) }; } };
+  // Sans clé : directement Workers AI, modèle gratuit par défaut, avec l'invite système en tête
+  const a = await reformulate({ CHATBOT_PROVIDER: "claude", AI: ai }, input, async () => { throw new Error("aucun appel Claude attendu"); });
+  assert.equal(a && a.meta.provider, "workers-ai");
+  assert.equal(ai.calls[0].model, "@cf/google/gemma-4-26b-a4b-it");
+  assert.equal(ai.calls[0].x.messages[0].role, "system");
+  assert.match(ai.calls[0].x.messages.at(-1).content, /<draft>/);
+  // Claude en erreur (quota, panne) : relais Workers AI dans la même requête
+  const b = await reformulate({ CHATBOT_PROVIDER: "claude", ANTHROPIC_API_KEY: "sk-test", AI: ai }, input, async () => new Response("{}", { status: 529 }));
+  assert.equal(b && b.meta.provider, "workers-ai");
+  // Claude répond un montant inventé : rejeté, puis Workers AI (montant correct) prend le relais
+  const bad = { ...good, message: "Le VCA Base coûte 199 € HTVA." };
+  const c = await reformulate({ CHATBOT_PROVIDER: "claude", ANTHROPIC_API_KEY: "sk-test", AI: ai }, input,
+    async () => Response.json({ stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify(bad) }] }));
+  assert.equal(c && c.message, good.message);
+  // Ni clé ni Workers AI : aucune IA, le navigateur garde sa réponse locale
+  assert.equal(await reformulate({ CHATBOT_PROVIDER: "claude" }, input), null);
 });
 
 test("IA Workers AI : réponse entourée de texte ou au format OpenAI → JSON extrait puis revalidé", async () => {

@@ -584,5 +584,16 @@
   "search.type_faq": "Veelgestelde vraag",
   "search.type_article": "Gids",
   "search.type_page": "Pagina",
-  "search.meta_desc": "Zoek een opleiding, een vraag of informatie op de website van Centre CFS."
+  "search.meta_desc": "Zoek een opleiding, een vraag of informatie op de website van Centre CFS.",
+  "chat.bubble_title": "Hulp nodig?",
+  "chat.bubble_text": "Stel uw vraag aan onze assistent: opleidingen, data, prijzen.",
+  "chat.bubble_close": "Uitnodiging sluiten",
+  "chat.badge": "AI",
+  "chat.subtitle": "Automatische assistent · gecontroleerde informatie van de website",
+  "chat.ai_label": "Opgesteld door AI op basis van gecontroleerde informatie van de website",
+  "chat.feedback_q": "Heeft dit antwoord u geholpen?",
+  "chat.feedback_yes": "Ja, nuttig",
+  "chat.feedback_no": "Nee, niet echt",
+  "chat.feedback_thanks": "Bedankt voor uw feedback.",
+  "chat.open_long": "De assistent van Centre CFS openen"
 }

@@ -51,6 +51,22 @@
     checkoutBase: location.origin + "/tests/browser/mollie.html?id=",
     mollieStatus: (id) => statuses[id] || "open",
   } : {});
+  // ?ai=1 : couche IA simulée (aucune clé, aucun coût). Sans ANTHROPIC_API_KEY, le Worker passe par le relais Workers AI
+  // (env.AI) ; ce faux modèle reprend la réponse vérifiée (<draft>) avec une phrase d'orientation, comme le ferait l'IA.
+  if (new URLSearchParams(location.search).get("ai") === "1") {
+    b.env.CHATBOT_PROVIDER = "claude";
+    b.env.AI = {
+      calls: [],
+      async run(model, input) {
+        this.calls.push({ model, turns: input.messages.length });
+        const last = input.messages[input.messages.length - 1].content;
+        const draft = (/<draft>\n([\s\S]*?)\n<\/draft>/.exec(last) || [])[1] || "";
+        const lang = (/Langue de la réponse : (\w+)/.exec(last) || [])[1] || "fr";
+        const next = { fr: "Souhaitez-vous que je vous indique la prochaine étape ?", nl: "Zal ik u de volgende stap tonen?", en: "Shall I show you the next step?" }[lang];
+        return { response: JSON.stringify({ message: `${draft}\n\n${next}`, cards: [], suggestions: [], sources: [] }) };
+      },
+    };
+  }
   window.__bench = b;
   const log = document.getElementById("log");
   const state = document.getElementById("state");

@@ -78,8 +78,8 @@ Guide détaillé avec captures : `docs/GUIDE-FEUILLE.md`. En bref :
 Avec Node (facultatif) : `npm ci`, `npx wrangler login`, `npm run dev` (essai local sur http://localhost:8787),
 `npx wrangler secret put NOM` pour les secrets, `npm run deploy` pour publier.
 
-L'IA du chatbot (Workers AI, modèle gratuit `@cf/google/gemma-4-26b-a4b-it`) est active dès la publication, sans clé :
-voir l'étape 7. Le site statique est servi directement par Cloudflare ; seul `/api/*` exécute le Worker.
+L'IA du chatbot est active dès la publication : sans clé, elle passe par Workers AI (gratuit) ; avec la clé Claude,
+elle passe par Claude (plus professionnel, payant à l'usage) : voir l'étape 7. Le site statique est servi directement par Cloudflare ; seul `/api/*` exécute le Worker.
 
 ## 3. EmailJS (tous les e-mails, côté serveur uniquement)
 
@@ -135,10 +135,21 @@ Les remboursements se font dans le tableau de bord Mollie ; la feuille signale �
 
 ## 7. IA du chatbot
 
-Active par défaut avec le Worker : Workers AI (allocation gratuite de 10 000 « neurons » par jour, environ 250 réponses
-de l'IA ; le cœur local répond aux questions simples sans l'appeler). Rien à créer. Pour la couper : `CHATBOT_PROVIDER`
-= `local` dans `wrangler.toml`. Pour une meilleure qualité, payante à l'usage : `CHATBOT_PROVIDER` = `claude`, secret
-`ANTHROPIC_API_KEY` (console.anthropic.com, **avec une limite de dépenses**). Détails : `docs/README-ASSISTANT.md`.
+Fonctionnement comme l'assistant Wisy Safety : l'IA rédige chaque réponse à partir des informations vérifiées du site
+(D-016). `CHATBOT_PROVIDER` = `claude` dans `wrangler.toml` (déjà réglé).
+
+- **Sans rien faire** : relais Workers AI, gratuit (10 000 « neurons » par jour, environ 250 réponses de l'IA).
+- **Pour Claude (recommandé, payant à l'usage, environ 1 à 3 centimes de dollar par réponse)** :
+  1. console.anthropic.com › créer un compte de l'organisation › *Billing* : ajouter un moyen de paiement et une
+     **limite de dépenses mensuelle** (par exemple 20 $) ;
+  2. *API keys* › *Create key* (nom : `centre-cfs-worker`) ; copier la clé (elle ne s'affiche qu'une fois) ;
+  3. Cloudflare › Workers › `centre-cfs` › Settings › Variables and Secrets › *Add* › type **Secret**, nom
+     `ANTHROPIC_API_KEY`, coller la clé › Deploy. Jamais dans GitHub, dans la feuille, dans un fichier ou dans le chat.
+  4. Vérifier : poser une question sur le site ; la réponse porte la mention « Rédigé par l'IA… ».
+- Modèle : `CHATBOT_MODEL` (`claude-opus-5-5` par défaut ; `claude-sonnet-5-5` ou `claude-haiku-5-5` pour réduire le
+  coût). Plafond quotidien : `CHATBOT_DAILY_LIMIT` (200). Couper l'IA : `CHATBOT_PROVIDER` = `local`.
+
+Détails et coûts : `docs/README-ASSISTANT.md`.
 
 ## 8. Variables de construction du site
 

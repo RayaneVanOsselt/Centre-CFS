@@ -159,3 +159,22 @@ Une entrée par décision : contexte, options, choix, conséquences. Statut : **
 - **Conséquences** : grille validée par Rayane le 27/11/2026 (les durées « à préciser » restent à fournir). L'IA ne
   fonctionne qu'avec le Worker déployé (pas sur GitHub Pages, où le cœur local répond seul). Publication sans Node :
   workflow `deploy-cloudflare.yml` (bouton « Run workflow »).
+
+## D-016 : l'IA rédige chaque réponse à partir des faits vérifiés, comme l'assistant Wisy Safety (27/11/2026)
+
+- **Contexte** : Rayane veut un assistant « encore plus professionnel », sur le modèle de son site Wisy Safety (Claude
+  derrière un serveur). Avec D-014/D-015, l'IA n'intervenait que si le cœur local doutait, sans mémoire de la
+  conversation, avec un petit modèle gratuit.
+- **Options** : (a) garder D-015 ; (b) Claude seul, sans garde-fous locaux ; (c) Claude rédige **chaque** réponse à
+  partir de la réponse locale vérifiée, du fil de la conversation et des extraits recherchés par le Worker, avec
+  revalidation et relais gratuit.
+- **Choix** : (c). `CHATBOT_PROVIDER` = `claude`, modèle `claude-opus-5-5` (le plus capable ; `CHATBOT_MODEL` permet
+  Sonnet ou Haiku), sortie JSON imposée par un schéma, invite système en cache, repli serveur en cas de refus
+  (`server-side-fallback-2026-07-01`), effort bas (réponses rapides). Sans clé ou en cas d'échec : relais Workers AI
+  (`@cf/google/gemma-4-26b-a4b-it`, gratuit), puis réponse locale. Intentions sensibles toujours en réponse fixe.
+  Panneau : indicateur de frappe, mention IA sous chaque réponse rédigée par l'IA, avis anonyme utile / pas utile.
+- **Conséquences** : aucune dépense tant que Rayane n'a pas ajouté `ANTHROPIC_API_KEY` (action payante qu'il décide,
+  avec une limite de dépenses) ; ensuite environ 1 à 3 centimes de dollar par réponse, plafonné à 200 réponses par
+  jour. Véracité inchangée : prix, dates, places et liens restent ceux de la base et de la feuille, revalidés par le
+  Worker et par le navigateur. Le fil de la conversation (6 échanges, textes bornés) est envoyé à Anthropic pour la
+  réponse : la mention « ne partagez pas de données personnelles » reste affichée sous le champ (docs/RGPD.md).

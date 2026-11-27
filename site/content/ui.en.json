@@ -584,5 +584,16 @@
   "search.type_faq": "FAQ",
   "search.type_article": "Guide",
   "search.type_page": "Page",
-  "search.meta_desc": "Search for a course, a question or information on the Centre CFS website."
+  "search.meta_desc": "Search for a course, a question or information on the Centre CFS website.",
+  "chat.bubble_title": "Need help?",
+  "chat.bubble_text": "Ask our assistant: courses, dates, prices.",
+  "chat.bubble_close": "Close the invitation",
+  "chat.badge": "AI",
+  "chat.subtitle": "Automated assistant · verified website information",
+  "chat.ai_label": "Written by AI from verified website information",
+  "chat.feedback_q": "Was this answer helpful?",
+  "chat.feedback_yes": "Yes, helpful",
+  "chat.feedback_no": "Not really",
+  "chat.feedback_thanks": "Thank you for your feedback.",
+  "chat.open_long": "Open the Centre CFS assistant"
 }

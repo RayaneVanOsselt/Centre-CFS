@@ -500,8 +500,11 @@ def page(lang, path, title, desc, body, *, alternates=None, active=None, jsonld=
         robots = "noindex, nofollow"
     js_html = "".join(f'<script src="{asset(s) if not s.startswith("/assets/js/site-data") else s + "?v=" + DATA_V[lang]}" defer></script>' for s in js)
     progress_html = '<div class="progress" aria-hidden="true"></div>' if progress else ""
-    chat = (f'<button class="chat-launcher" type="button" data-chat-open hidden aria-haspopup="dialog">'
-            f'<span class="chat-launcher-dot" aria-hidden="true"></span>{icon("chat")}<span>{E(t(lang, "chat.open"))}</span></button>') if PUBLIC["chatbot"] else ""
+    # Lanceur de l'assistant : panneau d'information rond (« i » façon ISO 7010), pastille IA, point de disponibilité
+    chat = (f'<button class="chat-launcher" type="button" data-chat-open hidden aria-haspopup="dialog" aria-label="{E(t(lang, "chat.open_long"))}">'
+            f'<span class="chat-avatar" aria-hidden="true"><span class="chat-avatar-i">i</span><span class="chat-launcher-dot"></span></span>'
+            f'<span class="chat-launcher-text">{E(t(lang, "chat.open"))}</span>'
+            f'<span class="chat-badge" data-chat-badge hidden aria-hidden="true">{E(t(lang, "chat.badge"))}</span></button>') if PUBLIC["chatbot"] else ""
     doc = f'''<!doctype html>
 <html lang="{R.HTML_LANG[lang]}" data-lang="{lang}">
 <head>

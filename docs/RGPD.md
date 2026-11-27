@@ -14,6 +14,7 @@
 | Certificats | nom du participant, formation, dates de validité | contrat / obligation légale de l'employeur | Supabase (fichiers privés, liens de 5 min) | durée de validité + 1 an |
 | Sécurité | empreinte salée de l'adresse IP (jamais l'adresse), journaux | intérêt légitime | Supabase (`rate_limits`, `audit_log`) | 2 jours (limites) ; 1 an (journal) |
 | Chatbot (facultatif) | question expurgée, langue, intention | intérêt légitime | Supabase (`chat_logs`) | 90 jours (purge automatique) |
+| Rédaction des réponses par l'IA | question et 6 derniers échanges de la conversation (texte seul, bornés), langue | intérêt légitime | transmis pour la réponse à Anthropic (Claude, si la clé existe) ou Cloudflare Workers AI ; rien n'est stocké par le site | durée de la requête (conservation chez le fournisseur selon son contrat, à vérifier à l'activation) |
 | Mesure d'audience | aucune donnée personnelle, aucun cookie | — | Cloudflare Web Analytics | — |
 
 ## Sous-traitants
