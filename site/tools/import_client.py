@@ -82,7 +82,8 @@ def parse_date(s):
 
 
 def parse_time(s):
-    s = (s or "").strip().lower().replace("h", ":")
+    """« 08:30 », « 8h30 », « 8 h 30 » ou « 17h » → « HH:MM » ; None si illisible."""
+    s = (s or "").strip().lower().replace(" ", "").replace("h", ":").rstrip(":")
     m = re.fullmatch(r"(\d{1,2})(?::(\d{2}))?", s)
     if not m:
         return None
