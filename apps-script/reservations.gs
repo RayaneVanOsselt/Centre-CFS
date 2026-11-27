@@ -21,7 +21,7 @@
  * =========================================================================
  */
 
-var VERSION = "2.0.0";
+var VERSION = "2.1.0";
 
 var CONFIG = {
   FILE_NAME: "Réservations – Centre CFS",
@@ -675,6 +675,8 @@ function codeOf_(list, v) {
 function labelOf_(list, code) { for (var i = 0; i < list.length; i++) if (list[i][0] === code) return list[i][1]; return ""; }
 function lang_(v) { return SITE_LANGS.indexOf(String(v)) >= 0 ? String(v) : "fr"; }
 function prop_(k) { try { return PropertiesService.getScriptProperties().getProperty(k); } catch (e) { return null; } }
+/** Secret de signature partagé avec le Worker (nom de la mission : HMAC_SECRET ; ancien nom accepté). */
+function hmacSecret_() { return prop_("RESERVATIONS_HMAC_SECRET") || prop_("HMAC_SECRET"); }
 
 /* ======================================================================= signature (seul le Worker peut appeler) */
 
@@ -694,7 +696,7 @@ function hmacHex_(message, secret) { return hex_(Utilities.computeHmacSha256Sign
  * ou dans l'adresse (GET). Refusé : secret absent, horodatage à plus de 5 minutes, signature fausse, nonce déjà vu.
  */
 function verifySigned_(ts, nonce, sig, content) {
-  var secret = prop_("RESERVATIONS_HMAC_SECRET");
+  var secret = hmacSecret_();
   if (!secret || secret.length < 32) return "not_configured";
   var t = Number(ts);
   if (!isFinite(t) || Math.abs(now_().getTime() / 1000 - t) > CONFIG.SIGNATURE_MAX_AGE_SECONDS) return "expired";
@@ -956,7 +958,7 @@ function health_() {
   }
   return {
     status: "ok", version: VERSION, timezone: CONFIG.TIMEZONE, tabs: tabs, automaticTask: hasTrigger,
-    signing: !!prop_("RESERVATIONS_HMAC_SECRET"), emailjs: !!emailConfig_(), email: quotaState_(), outbox: outbox,
+    signing: !!hmacSecret_(), emailjs: !!emailConfig_(), email: quotaState_(), outbox: outbox,
     sessions: {
       rows: sessions.list.length,
       valid: sessions.list.filter(function (s) { return s.valid; }).length,
@@ -1059,7 +1061,8 @@ function validateOrder_(body, formations) {
     items: []
   };
   if (!REQUEST_RE.test(order.requestId)) fields.requestId = "invalid";
-  if (!UUID_RE.test(order.userId)) fields.userId = "invalid";
+  // Compte facultatif : réservation possible sans compte (rattachée plus tard par l'adresse e-mail vérifiée)
+  if (order.userId && !UUID_RE.test(order.userId)) fields.userId = "invalid";
   if (!order.payMode) fields.payMode = "invalid";
   if (!(order.vatRate >= 0 && order.vatRate <= 0.3)) fields.vatRate = "invalid";
   ["firstName", "lastName"].forEach(function (k) { if (!order.customer[k]) fields[k] = "required"; else if (order.customer[k].length > 80) fields[k] = "too_long"; });
@@ -1395,12 +1398,14 @@ function listForUser_(body) {
   var ids = (Array.isArray(body.userIds) ? body.userIds : [body.userId]).map(function (x) { return String(x || "").toLowerCase(); }).filter(function (x) { return UUID_RE.test(x); }).slice(0, 50);
   if (!ids.length) return { status: "invalid" };
   var want = {}; ids.forEach(function (x) { want[x] = true; });
+  // Adresse VÉRIFIÉE par Supabase (transmise par le Worker) : réservations faites sans compte avec la même adresse
+  var mail = ids.length === 1 && EMAIL_RE.test(String(body.email || "")) ? String(body.email).toLowerCase() : "";
   var b = readBookings_(), now = now_(), byRef = {}, order = [];
   var formations = readFormations_(), sessions = readSessions_(formations);
   b.rows.forEach(function (r) {
-    if (!r.userId || !want[r.userId]) return;
+    if (!(r.userId && want[r.userId]) && !(mail && !r.userId && r.email.toLowerCase() === mail)) return;
     if (!byRef[r.ref]) {
-      byRef[r.ref] = { ref: r.ref, userId: r.userId, received: isDate_(r.received) ? fmt_(r.received, "yyyy-MM-dd'T'HH:mm") : null,
+      byRef[r.ref] = { ref: r.ref, userId: r.userId || ids[0], received: isDate_(r.received) ? fmt_(r.received, "yyyy-MM-dd'T'HH:mm") : null,
         payMode: r.payMode === M_ONLINE ? "online" : r.payMode === M_INVOICE ? "invoice" : null, payStatus: r.payStatus || null,
         amountInclCents: 0, items: [], participants: [] };
       order.push(r.ref);
@@ -1431,7 +1436,8 @@ var CONTACT_FORMS = {
   devis: { label: "Devis", subject: "Demande de devis (formation en entreprise)" },
   inscription: { label: "Inscription", subject: "Demande d'inscription" },
   salle: { label: "Location de salle", subject: "Location de salle" },
-  prevenir: { label: "Être prévenu", subject: "Être prévenu des prochaines dates" }
+  prevenir: { label: "Être prévenu", subject: "Être prévenu des prochaines dates" },
+  assistant: { label: "Assistant", subject: "Question transmise par l'assistant du site" }
 };
 
 function validateContact_(body) {
@@ -2150,7 +2156,7 @@ function checkConsistency() {
   var q = quotaState_();
   if (q.state !== "ok") problems.push("Quota e-mails : " + q.used + "/" + q.quota + (q.state === "full" ? " — ATTEINT." : " — rappels suspendus."));
   if (!emailConfig_()) problems.push("EmailJS n'est pas configuré (propriétés du script EMAILJS_*).");
-  if (!prop_("RESERVATIONS_HMAC_SECRET")) problems.push("Secret de signature absent (propriété RESERVATIONS_HMAC_SECRET) : le site ne peut pas parler à la feuille.");
+  if (!hmacSecret_()) problems.push("Secret de signature absent (propriété HMAC_SECRET) : le site ne peut pas parler à la feuille.");
   ui_().alert(problems.length ? "À corriger :\n\n" + problems.slice(0, 40).join("\n") : "Tout est cohérent : " + sessions.list.length + " session(s), " + bookings.rows.length + " ligne(s) de réservation. E-mails ce mois-ci : " + q.used + "/" + q.quota + ".");
 }
 
@@ -2314,7 +2320,7 @@ function install() {
   refreshAll_();
   clearCache_();
   var missing = [];
-  if (!prop_("RESERVATIONS_HMAC_SECRET")) missing.push("RESERVATIONS_HMAC_SECRET");
+  if (!hmacSecret_()) missing.push("HMAC_SECRET");
   if (!emailConfig_()) missing.push("EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_CLIENT, EMAILJS_TEMPLATE_EQUIPE, EMAILJS_PUBLIC_KEY, EMAILJS_PRIVATE_KEY");
   var done = "Feuille prête ✔\n\n• Formations : " + readFormations_().list.length + ".\n• Sessions : une ligne = une session ; les places restantes sont calculées automatiquement.\n• Tâche automatique : toutes les 10 minutes." +
     (missing.length ? "\n\n⚠ À compléter dans Paramètres du projet › Propriétés du script : " + missing.join(", ") + "." : "") +

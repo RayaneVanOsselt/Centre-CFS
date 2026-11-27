@@ -1,0 +1,47 @@
+# Cloudflare Workers (plan GRATUIT) : le site statique (dist/) et l'API /api/* dans un seul projet.
+# Déploiement : docs/SETUP.md (« npm run deploy » construit le site puis publie le Worker).
+# Les SECRETS ne sont jamais écrits ici : « npx wrangler secret put NOM » (liste dans .dev.vars.example).
+
+name = "centre-cfs"
+main = "worker/src/index.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+# Site statique : servi directement par Cloudflare (requêtes non facturées comme requêtes Worker).
+# Seules les adresses /api/* exécutent le code du Worker. _headers et _redirects (générés par site/build.py) s'appliquent.
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
+not_found_handling = "404-page"
+html_handling = "auto-trailing-slash"
+
+# Toutes les 10 minutes : rejeu de la boîte de secours des demandes et activité Supabase (évite la pause après 7 jours)
+[triggers]
+crons = ["*/10 * * * *"]
+
+[observability]
+enabled = true
+
+# Réglages PUBLICS (aucun secret). Les valeurs vides sont à compléter dans le tableau de bord ou ici, après la mise en service.
+[vars]
+SITE_URL = "https://centrecfs.be"
+SUPABASE_URL = ""
+SUPABASE_PUBLISHABLE_KEY = ""
+EMAILJS_PUBLIC_KEY = ""
+EMAILJS_SERVICE_ID = ""
+EMAILJS_TEMPLATE_CLIENT = ""
+EMAILJS_TEMPLATE_EQUIPE = ""
+EMAILJS_MONTHLY_QUOTA = "200"
+TEAM_NOTIFICATION_EMAIL = "info@centrecfs.be"
+TURNSTILE_SITE_KEY = ""
+ONLINE_PAYMENT_ENABLED = "0"
+CHATBOT_PROVIDER = "local"
+CHATBOT_MODEL = ""
+CHATBOT_DAILY_LIMIT = "200"
+VAT_RATE = "0.21"
+
+# Couche IA facultative du chatbot avec Workers AI (docs/README-ASSISTANT.md) : décommenter seulement si
+# CHATBOT_PROVIDER = "workers-ai", avec un modèle disponible sur le plan gratuit.
+# [ai]
+# binding = "AI"

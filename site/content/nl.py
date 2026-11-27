@@ -445,6 +445,7 @@ ARTICLES = {
     },
     "secouriste-entreprise-obligations": {
         "title": "Hulpverlener op het werk: wat zegt het K.B. van 15 december 2010?",
+        "meta_title": "Hulpverlener op het werk en het K.B. van 15/12/2010",
         "desc": "Basisopleiding, jaarlijkse bijscholing, alternatief om de twee jaar: de essentie van de opleidingsverplichtingen voor hulpverleners.",
         "body": [
             ("p", "Het K.B. van 15 december 2010 regelt de eerste hulp aan werknemers. Dit moet u weten om de opleiding van uw hulpverleners te organiseren."),
@@ -474,7 +475,7 @@ ARTICLES = {
 
 PAGES = {
     "home": {
-        "meta_title": "Centre CFS | Opleidingen veiligheid op het werk in Luik en Charleroi",
+        "meta_title": "Centre CFS | Veiligheidsopleidingen in Luik en Charleroi",
         "meta_desc": "Opleidingen VCA, BA4/BA5, eerste hulp, brand en arbeidsmiddelen in Engis (Luik), Charleroi of in uw bedrijf. 22 certificerende opleidingen, 11 talen.",
         "kicker": "Engis · Charleroi · in uw bedrijf",
         "title_a": "Leid uw teams op",
@@ -660,7 +661,7 @@ PAGES = {
         "news": "Nieuws",
         "related": "De opleidingen waarover dit artikel gaat",
     },
-    "plan": {"meta_title": "Sitemap", "meta_desc": "Alle pagina's van de site van Centre CFS.", "title": "Sitemap"},
+    "plan": {"meta_title": "Sitemap van de website", "meta_desc": "Alle pagina's van de site van Centre CFS.", "title": "Sitemap"},
     "404": {"meta_title": "Pagina niet gevonden", "title": "Deze pagina bestaat niet (meer)",
             "lead": "Onze site is volledig vernieuwd: het adres is misschien veranderd. Met de links hieronder vindt u de weg terug.",
             "sign": "Waarschuwingsbord"},

@@ -446,6 +446,7 @@ ARTICLES = {
     },
     "secouriste-entreprise-obligations": {
         "title": "Workplace first aiders: what the Royal Decree of 15 December 2010 says",
+        "meta_title": "Workplace first aiders and the Royal Decree of 15/12/2010",
         "desc": "Basic course, annual refresher, every-two-years option: the essentials of training obligations for workplace first aiders.",
         "body": [
             ("p", "The Royal Decree of 15 December 2010 governs first aid provided to workers. Here is what you need to know to organise training for your first aiders."),
@@ -475,7 +476,7 @@ ARTICLES = {
 
 PAGES = {
     "home": {
-        "meta_title": "Centre CFS | Workplace safety training in Liège and Charleroi",
+        "meta_title": "Centre CFS | Workplace safety training, Liège & Charleroi",
         "meta_desc": "VCA, BA4/BA5, first aid, firefighting and work equipment training in Engis (Liège), Charleroi or at your company. 22 certified courses, 11 languages.",
         "kicker": "Engis · Charleroi · at your premises",
         "title_a": "Train your teams",

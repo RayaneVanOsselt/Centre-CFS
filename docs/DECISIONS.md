@@ -84,3 +84,45 @@ Une entrée par décision : contexte, options, choix, conséquences. Statut : **
 - **Écart avec la mission** : pas d'affiche AVIF rendue par Playwright (inutile : le panneau HTML l'est déjà) ; transition
   jour/nuit déclenchée par la visibilité du héros plutôt que par `animation-timeline`. L'animation d'introduction existante
   (une fois par session) est conservée.
+
+## D-009 : Worker sans dépendance d'exécution (validée, 27/11/2026)
+
+- **Contexte** : la mission cite `jose` (vérification des jetons Supabase) et `zod` (validation) pour le Worker, et
+  demande de justifier toute dépendance. Node n'est pas installé sur le poste de Rayane : rien ne peut être installé,
+  copié ni testé localement avec npm ; le Worker est testé dans GitHub Actions.
+- **Options** : (1) `jose` + `zod`, regroupés par wrangler au déploiement ; (2) WebCrypto natif du runtime Workers et
+  des validateurs écrits à la main, testés.
+- **Choix** : (2). `worker/src/lib/auth.js` vérifie les JWT ES256/RS256 de Supabase avec le JWKS du projet (émetteur,
+  audience, expiration, « alg: none » refusé) et la signature « Standard Webhooks » du hook d'e-mails ;
+  `worker/src/lib/validate.js` reprend exactement les règles de `reservations.gs` (la feuille revalide tout).
+- **Conséquences** : `package.json` n'a plus que des dépendances de développement (tests, lint, wrangler) ; aucun code
+  tiers n'est exécuté en production ; Worker plus léger (temps CPU sous la limite de 10 ms du plan gratuit). Les tests
+  `tests/worker/unit.test.js` couvrent les cas qu'aurait couverts `jose` (jeton expiré, autre émetteur, autre clé).
+
+## D-010 : références et boîte de secours (validée, 27/11/2026)
+
+- **Contexte** : la mission propose `CFS-R-…` pour les réservations ; le moteur Google Sheets (repris de Wisy et déjà
+  testé) produit `CFS-AAAA-XXXXX` (réservation) et `CFD-AAAA-XXXXX` (demande).
+- **Choix** : garder ces formats (lisibles au téléphone, sans 0/O ni 1/I) et ajouter `CFW-AAAA-XXXXX` pour une demande
+  gardée dans la boîte de secours Supabase quand la feuille ne répond pas. La tâche planifiée la rejoue avec le même
+  `requestId` (jamais de doublon) ; la feuille lui attribue alors sa propre référence `CFD-…`.
+- **Conséquences** : la référence `CFW-…` donnée au visiteur figure dans l'e-mail de secours reçu par l'équipe et dans
+  la ligne rejouée (colonne Message), ce qui permet de faire le lien.
+
+## D-011 : réservation sans compte (validée, 27/11/2026)
+
+- **Contexte** : la section 11 de la mission rattache au compte « les réservations faites sans compte avec la même
+  adresse vérifiée » : réserver ne doit donc pas exiger de compte. Le moteur v2.0 l'exigeait (`userId` obligatoire).
+- **Choix** : moteur v2.1 : `userId` facultatif. `listForUser` reçoit l'identifiant ET l'adresse vérifiée transmise par
+  le Worker (lue dans le jeton Supabase, jamais envoyée par le navigateur) et ajoute les réservations sans compte faites
+  avec cette adresse. Le paiement en ligne ne demande plus l'espace client.
+- **Conséquences** : un particulier peut payer en ligne sans créer de compte ; une entreprise avec n° de TVA réserve sur
+  facture. Tests : `tests/reservations.test.js` (« réservation SANS compte… »).
+
+## D-012 : un seul fichier `.dev.vars` (validée, 27/11/2026)
+
+- **Contexte** : le générateur Python (`--dev`) et `wrangler dev` lisent tous deux `.dev.vars`.
+- **Choix** : un seul fichier, en deux parties : réglages du site (publics) et réglages du Worker (secrets compris),
+  conforme au tableau 3.4 de la mission. Le générateur ne lit que ses propres clés, jamais un secret.
+- **Conséquences** : `BASE_PATH` vide et explicite (`BASE_PATH= …`) l'emporte sur `.dev.vars`, pour construire le site
+  servi à la racine par le Worker (`npm run dev`, `npm run deploy`).

@@ -431,6 +431,7 @@ ARTICLES = {
     },
     "ba4-ou-ba5-habilitation-electrique": {
         "title": "BA4 ou BA5 : quelle habilitation électrique pour vos équipes ?",
+        "meta_title": "BA4 ou BA5 : quelle habilitation électrique choisir ?",
         "desc": "BA4 (personnel averti) ou BA5 (personnel qualifié) : qui est concerné, ce que couvre chaque formation et qui délivre l'habilitation.",
         "body": [
             ("p", "En Belgique, le RGIE distingue plusieurs niveaux de compétence pour les personnes qui travaillent sur ou près d'installations électriques. Les deux plus demandés sont BA4 et BA5."),
@@ -445,6 +446,7 @@ ARTICLES = {
     },
     "secouriste-entreprise-obligations": {
         "title": "Secouriste d'entreprise : ce que dit l'A.R. du 15 décembre 2010",
+        "meta_title": "Secouriste d'entreprise et A.R. du 15 décembre 2010",
         "desc": "Formation de base, recyclage annuel, alternative tous les deux ans : l'essentiel des obligations de formation des secouristes d'entreprise.",
         "body": [
             ("p", "L'A.R. du 15 décembre 2010 encadre les premiers secours dispensés aux travailleurs. Voici l'essentiel à retenir pour organiser la formation de vos secouristes."),
@@ -474,7 +476,7 @@ ARTICLES = {
 
 PAGES = {
     "home": {
-        "meta_title": "Centre CFS | Formations sécurité au travail à Liège et Charleroi",
+        "meta_title": "Centre CFS | Formations sécurité au travail, Liège-Charleroi",
         "meta_desc": "Formations VCA, BA4/BA5, secourisme, incendie et équipements de travail à Engis (Liège), Charleroi ou en entreprise. 22 formations certifiantes, 11 langues.",
         "kicker": "Engis · Charleroi · dans votre entreprise",
         "title_a": "Formez vos équipes",

@@ -7,6 +7,7 @@
    quotas). Voir scripts/test-reservations-live.js, à lancer sur une session de TEST après la mise en service. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import { loadGas } from "./helpers/gas-fake.js";
 
 const SECRET = "x".repeat(64);
@@ -480,4 +481,39 @@ test("concurrence : 20 réservations d'une place sur une session de 5 places →
   const results = Array.from({ length: 20 }, () => G.post(order(1)));
   assert.equal(results.filter((r) => r.status === "ok").length, 5);
   assert.equal(session(G).seatsLeft, 0);
+});
+
+/* ------------------------------------------------------------------ version 2.1 : sans compte, assistant, HMAC_SECRET */
+test("réservation SANS compte (userId vide) acceptée, puis rattachée au compte par l'adresse vérifiée", () => {
+  const G = sheetGas();
+  const guest = G.post(order(1, { userId: "", customer: { firstName: "Léa", lastName: "Sans", email: "lea@exemple.be", phone: "0470 22 22 22" } }));
+  assert.equal(guest.status, "ok");
+  assert.equal(session(G).seatsLeft, 9, "places bloquées comme une réservation avec compte");
+  // Le Worker transmet l'identifiant ET l'adresse vérifiée du compte : la réservation sans compte apparaît
+  const mine = G.post({ action: "listForUser", userId: OTHER, email: "lea@exemple.be" });
+  assert.equal(mine.reservations.length, 1);
+  assert.equal(mine.reservations[0].ref, guest.reference);
+  // Sans l'adresse, rien ; une autre adresse, rien
+  assert.equal(G.post({ action: "listForUser", userId: OTHER }).reservations.length, 0);
+  assert.equal(G.post({ action: "listForUser", userId: OTHER, email: "autre@exemple.be" }).reservations.length, 0);
+});
+
+test("question transmise par l'assistant : onglet Demandes, référence CFD", () => {
+  const G = sheetGas();
+  const r = G.post({ action: "contact", form: "assistant", requestId: "assistant-000001", lang: "nl", name: "Jan", email: "jan@exemple.be",
+    message: "Is er een sessie VCA in het Nederlands?", consent: true, elapsed: 99999 });
+  assert.equal(r.status, "ok");
+  assert.match(r.reference, /^CFD-2026-/);
+  assert.equal(G.sheet("Demandes").records()[0]["Formulaire"], "Assistant");
+});
+
+test("secret de signature sous le nom HMAC_SECRET (nom de la mission) accepté", () => {
+  const G = sheetGas();
+  G.props.delete("RESERVATIONS_HMAC_SECRET");
+  G.props.set("HMAC_SECRET", SECRET);
+  const ts = Math.floor(Date.parse(NOW) / 1000);
+  const nonce = "nonce-hmac-secret-alias";
+  const sig = crypto.createHmac("sha256", SECRET).update(ts + "." + nonce + ".GET:sessions").digest("hex");
+  const out = JSON.parse(G.ctx.doGet({ parameter: { action: "sessions", ts: String(ts), nonce, sig } }).text);
+  assert.equal(out.status, "ok");
 });

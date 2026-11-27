@@ -69,6 +69,9 @@ _DV = read_dev_vars()
 
 
 def cfg(key, default=""):
+    # BASE_PATH vide et explicite (site servi à la racine, Worker Cloudflare) l'emporte sur .dev.vars
+    if key == "BASE_PATH" and key in os.environ:
+        return os.environ[key]
     return os.environ.get(key) or _DV.get(key) or default
 
 
@@ -86,7 +89,10 @@ BASE = base_path(cfg("BASE_PATH"))
 
 # Les fonctions qui demandent un serveur (Worker Cloudflare, Supabase, Mollie) sont DÉSACTIVÉES par défaut : un site
 # statique (GitHub Pages) ne peut pas les faire tourner. Le code reste en place ; chaque option s'active par une variable.
+# WORKER_API=1 : le site est servi par le Worker Cloudflare (même domaine) et utilise son API /api/*.
+API = cfg("WORKER_API", "0") == "1"
 PUBLIC = {
+    "api": API,
     "siteUrl": cfg("SITE_URL", "http://localhost:8787" if DEV else C.SITE["url"]).rstrip("/"),
     "basePath": BASE,
     "supabaseUrl": cfg("SUPABASE_URL"),
@@ -97,9 +103,9 @@ PUBLIC = {
     "accounts": cfg("ACCOUNTS_ENABLED", "0") == "1",
     "onlinePayment": cfg("ONLINE_PAYMENT_ENABLED", "0") == "1",
     # Adresse qui reçoit les formulaires en JSON (Worker, Formspree…). Vide : le formulaire prépare un e-mail.
-    "formEndpoint": cfg("FORM_ENDPOINT"),
+    "formEndpoint": cfg("FORM_ENDPOINT", "/api/contact" if API else ""),
     # Liste publique des sessions avec les places en direct (JSON { status: "ok", sessions: [...] }). Vide : fichier de secours.
-    "sessionsUrl": cfg("SESSIONS_PUBLIC_URL"),
+    "sessionsUrl": cfg("SESSIONS_PUBLIC_URL", "/api/sessions" if API else ""),
     "email": C.SITE["email"],
     # Destinataire des demandes préparées par e-mail (mode sans FORM_ENDPOINT). Par défaut : l'adresse du centre.
     "formEmail": cfg("FORM_EMAIL", C.SITE["email"]),
@@ -116,8 +122,10 @@ if not re.match(r"^[^@\s\"<>]+@[^@\s\"<>]+\.[A-Za-z]{2,}$", PUBLIC["formEmail"])
     sys.exit(f"Configuration invalide : FORM_EMAIL = {PUBLIC['formEmail']}")
 if PUBLIC["accounts"] and not (PUBLIC["supabaseUrl"] and PUBLIC["supabaseKey"]):
     sys.exit("ACCOUNTS_ENABLED=1 demande SUPABASE_URL et SUPABASE_PUBLISHABLE_KEY")
-if PUBLIC["onlinePayment"] and not PUBLIC["accounts"]:
-    sys.exit("ONLINE_PAYMENT_ENABLED=1 demande l'espace client (ACCOUNTS_ENABLED=1) et le Worker")
+if PUBLIC["onlinePayment"] and not API:
+    sys.exit("ONLINE_PAYMENT_ENABLED=1 demande le Worker (WORKER_API=1)")
+if PUBLIC["accounts"] and not API:
+    sys.exit("ACCOUNTS_ENABLED=1 demande le Worker (WORKER_API=1)")
 CANON = C.SITE["url"]  # adresses canoniques et données structurées : toujours le domaine officiel
 # Aperçu (GitHub Pages sans domaine, développement) : jamais indexé, pour ne pas concurrencer le domaine officiel.
 PREVIEW = urlparse(PUBLIC["siteUrl"]).netloc.removeprefix("www.") != urlparse(CANON).netloc.removeprefix("www.")
@@ -426,6 +434,37 @@ def course_jsonld(f, lang):
 # ───────────────────────────── gabarit de page
 PAGES = []  # (lang, path, alternates, prio) pour le sitemap
 GENERATED = set()
+TITLE_MAX, DESC_MAX = 60, 155  # longueurs conseillées (mission, section 10.2) : contrôlées par site/tools/check_seo.py
+
+
+def seo_title(title):
+    """Titre de l'onglet : marque ajoutée si la place le permet ; précision de lieu entre parenthèses retirée si trop long."""
+    if "Centre CFS" not in title and len(title) + 13 <= TITLE_MAX:
+        return f"{title} | Centre CFS"
+    if len(title) > TITLE_MAX:
+        short = re.sub(r"\s*\([^)]*\)\s*$", "", title)
+        if len(short) <= TITLE_MAX:
+            return short
+        short = re.sub(r"\s*[:–]\s*[^:–]*$", "", title)  # « Nom : formation à Engis (Liège) » → « Nom »
+        if 20 <= len(short) <= TITLE_MAX:
+            return short + (" | Centre CFS" if len(short) + 13 <= TITLE_MAX else "")
+        short = re.sub(r"\s*\|\s*Centre CFS$", "", title)
+        if len(short) <= TITLE_MAX and short != title:
+            return short
+    return title
+
+
+def seo_desc(desc):
+    """Meta description de 155 caractères au plus : coupée à la fin d'une phrase, sinon à un espace (« … »).
+    Le texte visible de la page n'est jamais modifié."""
+    desc = re.sub(r"\s+", " ", desc or "").strip()
+    if len(desc) <= DESC_MAX:
+        return desc
+    cut = desc[:DESC_MAX]
+    end = max(cut.rfind(". "), cut.rfind("! "), cut.rfind("? "))
+    if end >= 80:
+        return cut[:end + 1]
+    return cut[:cut.rfind(" ")].rstrip(" ,;:–-") + "…"
 
 
 def page(lang, path, title, desc, body, *, alternates=None, active=None, jsonld=None, body_class="", og_image="/assets/img/og-default.png",
@@ -437,7 +476,8 @@ def page(lang, path, title, desc, body, *, alternates=None, active=None, jsonld=
         lds.append(crumbs_jsonld(crumbs))
     lds += jsonld or []
     ld_html = "".join('<script type="application/ld+json">' + safe_json(x) + "</script>" for x in lds)
-    full_title = title if ("Centre CFS" in title or len(title) > 52) else f"{title} | Centre CFS"
+    full_title = seo_title(title)
+    desc = seo_desc(desc)
     hreflang = "".join(f'<link rel="alternate" hreflang="{R.HREFLANG[lg]}" href="{CANON + p}">' for lg, p in alternates.items())
     if "fr" in alternates:
         hreflang += f'<link rel="alternate" hreflang="x-default" href="{CANON + alternates["fr"]}">'
@@ -1226,7 +1266,7 @@ def build_articles(lang):
         if a["date"]:
             ld["datePublished"] = a["date"]
         alts = {lg: R.article(a["key"], lg) for lg in LANGS}
-        page(lang, url, txt["title"], txt["desc"], body, alternates=alts, crumbs=cr, jsonld=[ld], progress=True, prio="0.5",
+        page(lang, url, txt.get("meta_title", txt["title"]), txt["desc"], body, alternates=alts, crumbs=cr, jsonld=[ld], progress=True, prio="0.5",
              og_image=share_image(IMG.ARTICLE_IMAGE.get(a["key"])))
 
 
@@ -1492,6 +1532,11 @@ def write_worker_data():
         fh.write("\n")
     with open(os.path.join(gen, "routes.json"), "w", encoding="utf-8") as fh:
         json.dump(R.export(), fh, ensure_ascii=False, indent=1)
+        fh.write("\n")
+    # Textes des e-mails et des réponses du Worker (mêmes sources que le site : aucune traduction dupliquée)
+    worker_keys = ("email.", "form.", "reg.", "nav.", "common.", "pay.", "acc.", "sess.")
+    with open(os.path.join(gen, "ui.json"), "w", encoding="utf-8") as fh:
+        json.dump({lg: {k: v for k, v in UI[lg].items() if k.startswith(worker_keys)} for lg in LANGS}, fh, ensure_ascii=False, indent=1)
         fh.write("\n")
 
 

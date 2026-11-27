@@ -25,3 +25,6 @@ Thumbs.db
 .claude/worktrees/
 .claude/launch.json
 .claude/settings.local.json
+
+# Données générées pour le Worker (python3 site/build.py)
+worker/src/generated/
