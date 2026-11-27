@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paiement simulé</title>
+<!-- Fausse page de paiement Mollie du banc d'essai (tests/browser/e2e.html?pay=1). Aucun paiement réel. -->
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 16px/1.5 system-ui, sans-serif; margin: 0; padding: 24px 16px; background: Canvas; color: CanvasText; }
+  main { max-width: 420px; margin: 0 auto; }
+  button { font: inherit; padding: 10px 16px; margin: 6px 8px 0 0; border-radius: 6px; border: 1px solid currentColor; background: transparent; color: inherit; cursor: pointer; }
+  .pay { background: #0D4A8C; color: #fff; border-color: #0D4A8C; }
+</style>
+</head>
+<body>
+<main>
+<h1>Paiement simulé (mode test)</h1>
+<p id="info">Chargement…</p>
+<button class="pay" type="button" data-status="paid">Payer</button>
+<button type="button" data-status="canceled">Annuler</button>
+<button type="button" data-status="failed">Échec</button>
+</main>
+<script type="module">
+  const id = new URLSearchParams(location.search).get("id") || "";
+  const ch = new BroadcastChannel("cfs-bench");
+  const ask = (msg) => new Promise((resolve) => {
+    const nonce = Math.random().toString(36).slice(2);
+    const on = (e) => { if (e.data && e.data.nonce === nonce) { ch.removeEventListener("message", on); resolve(e.data); } };
+    ch.addEventListener("message", on);
+    ch.postMessage({ ...msg, nonce });
+  });
+  const info = document.getElementById("info");
+  const p = await ask({ type: "payment", id });
+  info.textContent = p.amount ? `Montant : ${p.amount.value} ${p.amount.currency} · Référence : ${p.reference}` : "Paiement inconnu (ouvrir d'abord le banc avec ?pay=1).";
+  document.querySelectorAll("[data-status]").forEach((b) => b.addEventListener("click", async () => {
+    const r = await ask({ type: "settle", id, status: b.dataset.status });
+    location.href = r.redirectUrl;
+  }));
+</script>
+</body>
+</html>

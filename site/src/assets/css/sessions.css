@@ -147,3 +147,9 @@
 .wss-card--empty svg { width: 36px; height: 36px; color: var(--bleu); }
 .wss-card--empty p { margin: 0; color: var(--acier); }
 .board-next-label svg { width: 17px; height: 17px; flex: none; color: var(--bleu); }
+
+/* Places mises à jour en direct (relecture toutes les 45 s, ou réservation qui vient d'aboutir) */
+[data-session-hint].is-error { color: var(--rouge); font-weight: 600; }
+.is-updated { animation: cfs-updated 1.4s var(--ease, ease-out) 1; }
+@keyframes cfs-updated { from { box-shadow: 0 0 0 3px var(--jaune); } to { box-shadow: 0 0 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .is-updated { animation: none; } }

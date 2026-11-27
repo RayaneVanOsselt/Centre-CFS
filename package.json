@@ -1,6 +1,6 @@
 {
   "name": "centre-cfs",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
   "description": "Site trilingue du Centre CFS : générateur Python, Worker Cloudflare, moteur Google Sheets, comptes Supabase.",
   "type": "module",
@@ -11,23 +11,17 @@
     "build": "python3 site/build.py",
     "build:dev": "python3 site/build.py --dev",
     "import:client": "python3 site/tools/import_client.py",
-    "vendor": "python3 site/tools/vendor.py",
-    "dev": "node scripts/dev.js",
-    "mock:sheet": "node scripts/mock-sheet.js",
+    "dev": "SITE_URL=http://localhost:8787 BASE_PATH= WORKER_API=1 python3 site/build.py --dev && wrangler dev --port 8787",
     "test": "node --test \"tests/**/*.test.js\"",
     "test:py": "python3 -m pytest site/tests -q",
     "test:e2e": "playwright test",
     "test:all": "npm run test && npm run test:py && npm run check",
-    "check": "python3 site/tools/check_i18n.py && python3 site/tools/check_links.py",
-    "lint": "eslint . && prettier --check \"worker/**/*.js\" \"tests/**/*.js\" \"scripts/**/*.js\"",
-    "format": "prettier --write \"worker/**/*.js\" \"tests/**/*.js\" \"scripts/**/*.js\"",
+    "check": "python3 site/tools/check_i18n.py && python3 site/tools/check_links.py && python3 site/tools/check_seo.py",
+    "lint": "eslint worker tests scripts",
     "eval:chatbot": "node scripts/eval-chatbot.js",
-    "guide:pdf": "node scripts/guide-pdf.js",
-    "deploy": "npm run build && wrangler deploy"
-  },
-  "dependencies": {
-    "jose": "6.2.15",
-    "zod": "4.6.7"
+    "deploy": "npm run build:worker && wrangler deploy",
+    "build:worker": "SITE_URL=https://centrecfs.be BASE_PATH= WORKER_API=1 python3 site/build.py",
+    "check:js": "node scripts/check-syntax.js"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.15",

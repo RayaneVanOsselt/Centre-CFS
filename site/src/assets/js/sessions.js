@@ -2,10 +2,14 @@
    Centre CFS — sessions : données et mise en forme (aucun affichage ici, voir sessions-ui.js).
 
    Source des sessions, dans cet ordre :
-     1. la liste publique en direct (CFS_CONFIG.sessionsUrl), si elle est configurée et répond en moins de 6 s ;
+     1. la liste publique en direct (CFS_CONFIG.sessionsUrl : GET /api/sessions du Worker, qui lit la feuille Google),
+        si elle est configurée et répond en moins de 6 s ;
      2. le fichier de secours sessions-data.js (window.CFS_SESSIONS_FALLBACK), généré depuis client/sessions.csv.
    Seule la source en direct donne des places restantes ; le fichier de secours ne donne qu'une capacité.
    Les sessions passées et annulées sont toujours écartées, quelle que soit la source.
+   En direct, la liste est relue toutes les 45 s tant que l'onglet est visible ; chaque changement émet l'événement
+   « cfs:sessions » (detail : { sessions, live, changed: [identifiants] }). Après une réservation, apply() met
+   immédiatement à jour les places renvoyées par le serveur.
    ========================================================================= */
 (function (root) {
   "use strict";
@@ -45,7 +49,7 @@
       location: cat.locations && cat.locations[s.location] ? s.location : "engis",
       language: s.language || "fr",
       capacity: num(s.capacity),
-      seatsLeft: live ? num(s.seatsLeft) : null,
+      seatsLeft: live ? num(s.seatsLeft != null ? s.seatsLeft : s.remaining) : null,
       status: ["open", "full", "closed"].indexOf(s.status) >= 0 ? s.status : "open",
       closesAt: typeof s.closesAt === "string" ? s.closesAt : null,
       price: num(s.price) !== null && s.price > 0 ? s.price : f.price,
@@ -62,28 +66,74 @@
     });
   }
 
-  var loading = null;
-  /** Promesse { sessions: [...], live: bool }. Une seule requête par page. */
-  function load() {
-    if (loading) return loading;
-    var fallback = function () {
-      var fb = root.CFS_SESSIONS_FALLBACK || {};
-      return { sessions: normalize(fb.sessions, false), live: false };
-    };
-    if (!cfg.sessionsUrl || typeof root.fetch !== "function") {
-      loading = Promise.resolve(fallback());
-      return loading;
-    }
+  var loading = null, current = null, REFRESH_MS = 45000;
+
+  function fallback(reason) {
+    if (reason && root.console) root.console.info("[sessions] fichier de secours utilisé :", reason);
+    var fb = root.CFS_SESSIONS_FALLBACK || {};
+    return { sessions: normalize(fb.sessions, false), live: false };
+  }
+
+  /** Lecture de la liste en direct ; null si elle ne répond pas correctement. */
+  function fetchLive() {
     var ctrl = typeof AbortController === "function" ? new AbortController() : null;
     var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 6000) : null;
-    loading = root.fetch(cfg.sessionsUrl, { headers: { Accept: "application/json" }, credentials: "omit", signal: ctrl ? ctrl.signal : undefined })
-      .then(function (r) { return r.ok ? r.json() : null; })
+    return root.fetch(cfg.sessionsUrl, { headers: { Accept: "application/json" }, credentials: "omit", signal: ctrl ? ctrl.signal : undefined })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status)); })
       .then(function (d) {
-        return d && d.status === "ok" && Array.isArray(d.sessions) ? { sessions: normalize(d.sessions, true), live: true } : fallback();
+        if (!d || !(d.ok === true || d.status === "ok") || !Array.isArray(d.sessions)) throw new Error("réponse inattendue");
+        return { sessions: normalize(d.sessions, true), live: true };
       })
-      .catch(fallback)
-      .then(function (res) { if (timer) clearTimeout(timer); return res; });
+      .finally(function () { if (timer) clearTimeout(timer); });
+  }
+
+  /** Promesse { sessions: [...], live: bool }. Une seule requête au chargement de la page. */
+  function load() {
+    if (loading) return loading;
+    if (!cfg.sessionsUrl || typeof root.fetch !== "function") {
+      loading = Promise.resolve(fallback(cfg.sessionsUrl ? "fetch indisponible" : ""));
+    } else {
+      loading = fetchLive().catch(function (e) { return fallback(e && e.message); });
+    }
+    loading = loading.then(function (res) { current = res; if (res.live) schedule(); return res; });
     return loading;
+  }
+
+  /** Publie une nouvelle liste si des places ont changé (identifiants des sessions modifiées). */
+  function publish(next) {
+    var before = {};
+    (current ? current.sessions : []).forEach(function (s) { before[s.id] = s.seatsLeft + "|" + s.status; });
+    var changed = next.sessions.filter(function (s) { return before[s.id] !== s.seatsLeft + "|" + s.status; }).map(function (s) { return s.id; });
+    current = next;
+    loading = Promise.resolve(next);
+    if (changed.length && root.document && typeof CustomEvent === "function") {
+      root.document.dispatchEvent(new CustomEvent("cfs:sessions", { detail: { sessions: next.sessions, live: next.live, changed: changed } }));
+    }
+    return changed;
+  }
+
+  var timerId = null;
+  function schedule() {
+    if (timerId || !root.document || !root.setInterval) return;
+    timerId = root.setInterval(function () {
+      if (root.document.visibilityState === "hidden") return;
+      fetchLive().then(publish).catch(function () { /* on garde la dernière liste connue */ });
+    }, REFRESH_MS);
+  }
+
+  /** Places renvoyées par le serveur après une réservation : appliquées tout de suite (sans attendre le cache). */
+  function apply(sessionId, remaining, capacity) {
+    if (!current || !current.live || typeof remaining !== "number") return;
+    var next = current.sessions.map(function (s) {
+      if (s.id !== sessionId) return s;
+      var c = {};
+      Object.keys(s).forEach(function (k) { c[k] = s[k]; });
+      c.seatsLeft = Math.max(0, remaining);
+      if (typeof capacity === "number" && capacity > 0) c.capacity = capacity;
+      if (c.seatsLeft === 0) c.status = "full";
+      return c;
+    });
+    publish({ sessions: next, live: true });
   }
 
   /* ---------- État d'une session ---------- */
@@ -99,22 +149,27 @@
     return s.date <= todayIso();
   }
 
-  /** open | low | full | closed — même code couleur que le calendrier et la légende. */
+  /** Seuil « dernières places » : max(3 ; 20 % de la capacité), comme le Worker (worker/src/routes/sessions.js). */
+  function lowThreshold(capacity) { return Math.max(3, Math.ceil(capacity * 0.2)); }
+
+  /** open | low | full | closed — même code couleur que le calendrier et la légende (mission, section 6.5). */
   function level(s) {
     if (isClosed(s)) return "closed";
     if (s.status === "full" || s.seatsLeft === 0) return "full";
-    if (s.seatsLeft != null && s.capacity && s.seatsLeft <= Math.max(2, Math.ceil(s.capacity * 0.2))) return "low";
+    if (s.seatsLeft != null && s.capacity && s.seatsLeft <= lowThreshold(s.capacity)) return "low";
     return "open";
   }
 
+  /** Texte de disponibilité (annexe B de la mission, clés availability.*). */
   function seatsText(s) {
     var lv = level(s);
-    if (lv === "closed") return t("sess.closed");
-    if (lv === "full") return t("sess.full");
+    if (lv === "closed") return t("availability.closed");
+    if (lv === "full") return t("availability.full");
     if (s.live && s.seatsLeft != null && s.capacity) {
-      return s.seatsLeft === 1 ? t("sess.seats_one", { total: s.capacity }) : t("sess.seats_of", { n: s.seatsLeft, total: s.capacity });
+      if (s.seatsLeft === 1) return t("availability.last");
+      return t(lv === "low" ? "availability.low" : "availability.open", { remaining: s.seatsLeft, capacity: s.capacity });
     }
-    return s.capacity ? t("sess.capacity", { total: s.capacity }) : t("sess.capacity_unknown");
+    return s.capacity ? t("sess.capacity", { total: s.capacity }) : t("availability.on_request");
   }
 
   /* ---------- Mise en forme ---------- */
@@ -172,7 +227,7 @@
   }
 
   root.CfsSessions = {
-    load: load, normalize: normalize, level: level, isClosed: isClosed, isToday: isToday, seatsText: seatsText,
+    load: load, apply: apply, lowThreshold: lowThreshold, normalize: normalize, level: level, isClosed: isClosed, isToday: isToday, seatsText: seatsText,
     dateText: dateText, shortDate: shortDate, longDate: longDate, timeText: timeText, days: days, parse: parse, isoOf: isoOf,
     addDays: addDays, todayIso: todayIso, training: training, domain: domain, place: place, languageName: languageName,
     priceText: priceText, bookUrl: bookUrl, route: route

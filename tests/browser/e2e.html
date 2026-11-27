@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Banc de bout en bout</title>
+<!-- Banc d'essai de bout en bout, sans Node ni Cloudflare :
+       WORKER_API=1 BASE_PATH=/dist SITE_URL=http://localhost:8766/dist python3 site/build.py --dev
+       python3 scripts/serve-tests.py
+     Ouvrir cet onglet (http://localhost:8766/tests/browser/e2e.html), puis le site dans un AUTRE onglet :
+     http://localhost:8766/dist/agenda/ . Les appels /api/* de ce site sont traités ici par le vrai code du Worker
+     (worker/src) et le vrai moteur Apps Script (apps-script/reservations.gs) sur une fausse feuille ; les e-mails
+     (EmailJS) sont simulés et listés ci-dessous. -->
+<script type="importmap">
+{
+  "imports": {
+    "node:test": "./shims/test.js",
+    "node:assert/strict": "./shims/assert.js",
+    "node:crypto": "./shims/crypto.js",
+    "node:fs": "./shims/fs.js",
+    "node:path": "./shims/path.js",
+    "node:url": "./shims/url.js",
+    "node:os": "./shims/os.js",
+    "node:vm": "./shims/vm.js"
+  }
+}
+</script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 15px/1.5 system-ui, sans-serif; margin: 0; padding: 16px; background: Canvas; color: CanvasText; }
+  h1 { font-size: 20px; margin: 0 0 8px; } h2 { font-size: 16px; margin: 16px 0 4px; }
+  pre { white-space: pre-wrap; font-size: 12px; max-height: 40vh; overflow: auto; }
+</style>
+</head>
+<body>
+<h1>Banc de bout en bout (Worker + feuille simulée)</h1>
+<p id="state">Démarrage…</p>
+<h2>Appels reçus</h2>
+<pre id="log"></pre>
+<script type="module">
+  import { Buffer } from "./shims/buffer.js";
+  globalThis.Buffer = Buffer;
+  const { handleApi } = await import("/worker/src/index.js");
+  const { bench, withFetch } = await import("/tests/worker/harness.js");
+  // ?pay=1 : paiement en ligne avec une fausse page Mollie locale (tests/browser/mollie.html) ; le site doit alors être
+  // construit avec ONLINE_PAYMENT_ENABLED=1.
+  const pay = new URLSearchParams(location.search).get("pay") === "1";
+  const statuses = {};
+  const b = bench(pay ? {
+    env: { ONLINE_PAYMENT_ENABLED: "1", MOLLIE_API_KEY: "test_bench", SITE_URL: location.origin + "/dist" },
+    checkoutBase: location.origin + "/tests/browser/mollie.html?id=",
+    mollieStatus: (id) => statuses[id] || "open",
+  } : {});
+  window.__bench = b;
+  const log = document.getElementById("log");
+  const state = document.getElementById("state");
+  const call = (req) => withFetch(b.fetchImpl, () => handleApi(req, b.env, { waitUntil() {} }));
+  // Fausse page Mollie : lecture d'un paiement, puis règlement (payé, annulé, échoué) suivi du webhook, comme Mollie
+  const ch = new BroadcastChannel("cfs-bench");
+  ch.addEventListener("message", async (e) => {
+    const m = e.data || {}, p = b.payments[m.id];
+    if (m.type === "payment") ch.postMessage({ nonce: m.nonce, amount: p && p.amount, reference: p && p.metadata && p.metadata.reference });
+    if (m.type === "settle" && p) {
+      statuses[m.id] = m.status;
+      const res = await call(new Request(location.origin + "/api/payments/mollie-webhook", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "id=" + m.id }));
+      log.textContent = `${new Date().toLocaleTimeString()}  webhook Mollie ${m.id} (${m.status}) → ${res.status}\n` + log.textContent;
+      ch.postMessage({ nonce: m.nonce, redirectUrl: p.redirectUrl });
+    }
+  });
+  navigator.serviceWorker.addEventListener("message", async (ev) => {
+    const d = ev.data, port = ev.ports[0];
+    const init = { method: d.method, headers: d.headers };
+    if (d.body != null) init.body = d.body;
+    const res = await call(new Request(d.url, init));
+    const text = res.status === 304 ? null : await res.text();
+    log.textContent = `${new Date().toLocaleTimeString()}  ${d.method} ${new URL(d.url).pathname}${new URL(d.url).search} → ${res.status}\n` + log.textContent;
+    port.postMessage({ status: res.status, headers: [...res.headers], body: text });
+  });
+  navigator.serviceWorker.startMessages();
+  // Portée « / » : les envois de formulaires SANS JavaScript (navigation POST vers /api/contact) passent aussi par le banc.
+  // (navigator.serviceWorker.ready ne sert pas ici : on attend explicitement l'activation.)
+  const reg = await navigator.serviceWorker.register("./api-sw.js", { scope: "/" });
+  const sw = reg.installing || reg.waiting || reg.active;
+  if (sw && sw.state !== "activated") {
+    await new Promise((resolve) => sw.addEventListener("statechange", () => { if (sw.state === "activated") resolve(); }));
+  }
+  state.textContent = `Prêt. Session de test VCA Base : ${b.sessionId} (10 places). Ouvrez /dist/agenda/ dans un autre onglet.`;
+  document.body.dataset.ready = "1";
+</script>
+</body>
+</html>

@@ -1,11 +1,11 @@
-# Rapport d'import des fichiers client (2026-11-26)
+# Rapport d'import des fichiers client (2026-11-27)
 
 Généré par `python3 site/tools/import_client.py`. Les fichiers de `client/` ne sont jamais modifiés.
 
 | Fichier | Résultat |
 |---|---|
 | `formations.csv` | 22 formations, 4 avec un prix HTVA |
-| `sessions.csv` | 7 session(s) à venir, 0 avec une capacité |
+| `sessions.csv` | 6 session(s) à venir, 0 avec une capacité |
 | `salles.csv` | 3 salle(s) |
 
 ## Erreurs (lignes non importées)
@@ -66,4 +66,5 @@ Aucune.
 
 ## Informations
 
-- 7 session(s) publiée(s) dans le fichier de secours sessions-data.js
+- sessions.csv ligne 2 : session passée (2026-11-26), ignorée
+- 6 session(s) publiée(s) dans le fichier de secours sessions-data.js

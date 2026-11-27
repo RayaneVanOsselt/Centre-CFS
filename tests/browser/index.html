@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tests JavaScript sans Node</title>
+<!-- Lance les mêmes tests que « npm test », dans le navigateur, sans rien installer.
+     Depuis la racine du projet : python3 site/build.py && python3 -m http.server 8766
+     puis ouvrir http://localhost:8766/tests/browser/ . Limite connue : un navigateur ignore l'en-tête Origin
+     fixé par un script ; le test « écriture depuis une autre origine refusée » n'est donc vérifié que par Node (CI). -->
+<script type="importmap">
+{
+  "imports": {
+    "node:test": "./shims/test.js",
+    "node:assert/strict": "./shims/assert.js",
+    "node:assert": "./shims/assert.js",
+    "node:crypto": "./shims/crypto.js",
+    "node:fs": "./shims/fs.js",
+    "node:path": "./shims/path.js",
+    "node:url": "./shims/url.js",
+    "node:os": "./shims/os.js",
+    "node:vm": "./shims/vm.js"
+  }
+}
+</script>
+<style>
+  :root { color-scheme: light dark; --ok: #0B7F4E; --ko: #C8241C; --muted: #4A5869; }
+  body { font: 15px/1.5 system-ui, sans-serif; margin: 0; padding: 16px; background: Canvas; color: CanvasText; }
+  h1 { font-size: 20px; margin: 0 0 8px; }
+  .sum { font-weight: 700; margin: 8px 0 16px; }
+  .ok { color: var(--ok); } .ko { color: var(--ko); } .skip { color: var(--muted); }
+  li { margin: 2px 0; } pre { white-space: pre-wrap; margin: 4px 0 8px 18px; font-size: 13px; }
+  h2 { font-size: 15px; margin: 16px 0 4px; }
+</style>
+</head>
+<body>
+<h1>Tests JavaScript (navigateur)</h1>
+<p class="sum" id="sum">Exécution…</p>
+<div id="out"></div>
+<script type="module" src="./runner.js"></script>
+</body>
+</html>

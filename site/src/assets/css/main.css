@@ -79,9 +79,6 @@ main:focus { outline: none; }
 .section-head--split { max-width: none; display: flex; justify-content: space-between; align-items: end; gap: var(--s-5); flex-wrap: wrap; }
 .section-head--split > div { max-width: 46rem; }
 .section--encre .section-head p { color: var(--sur-sombre-2); }
-.eyebrow { font-weight: 700; font-size: var(--t-s); color: var(--bleu); margin: 0 0 var(--s-2); display: inline-flex; align-items: center; gap: .5rem; }
-.eyebrow::before { content: ""; width: 22px; height: 3px; background: var(--jaune); border-radius: 2px; }
-.on-dark .eyebrow { color: var(--jaune); }
 .lead { font-size: var(--t-l); line-height: 1.55; color: var(--acier); max-width: 46rem; }
 .muted { color: var(--acier); }
 .small { font-size: var(--t-s); }
@@ -282,9 +279,6 @@ body.nav-open { overflow: hidden; }
 @media (prefers-reduced-motion: no-preference) { .kicker-dot, .live-dot { animation: ping 2s infinite; } }
 @keyframes ping { 70% { box-shadow: 0 0 0 9px rgba(247, 181, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(247, 181, 0, 0); } }
 .hero h1 { color: var(--blanc); max-width: 15ch; margin-bottom: var(--s-5); }
-.hero h1 .mark { position: relative; display: inline; color: var(--jaune); white-space: normal; }
-.hero h1 .mark::after { content: ""; position: absolute; left: 0; right: 0; bottom: -.06em; height: .09em; border-radius: 99px; background: var(--jaune); transform-origin: left; }
-@media (prefers-reduced-motion: no-preference) { .hero h1 .mark::after { animation: sweep .8s calc(var(--intro-delay) + .3s) var(--ease) both; } }
 .hero .lead { color: var(--sur-sombre); margin-bottom: var(--s-6); }
 .hero-facts { list-style: none; padding: 0; margin: var(--s-6) 0 0; display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-5); font-size: var(--t-s); color: #C6D5E7; }
 .hero-facts li { display: flex; align-items: center; gap: .45rem; }
@@ -320,34 +314,11 @@ body.nav-open { overflow: hidden; }
   .board-grid a { font-size: .7rem; padding: .35rem 0; }
 }
 
-/* ---------- Chiffres ---------- */
-.stats { background: var(--blanc); border-bottom: 1px solid var(--ligne); }
-.stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; }
-.stat { display: flex; flex-direction: column-reverse; gap: .2rem; padding: var(--s-6) var(--s-4); border-left: 1px solid var(--ligne); position: relative; }
-.stat:first-child { border-left: 0; }
-.stat::before { content: ""; position: absolute; top: 0; left: var(--s-4); width: 34px; height: 4px; background: var(--jaune); border-radius: 0 0 3px 3px; }
-.stat dd { margin: 0; font: 800 clamp(2.6rem, 2rem + 2.4vw, 4rem)/1 var(--f-titre); color: var(--bleu); font-variant-numeric: tabular-nums; }
-.stat dt { color: var(--acier); font-weight: 600; font-size: var(--t-s); }
-@media (max-width: 760px) { .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .stat:nth-child(3) { border-left: 0; } .stat:nth-child(-n+2) { border-bottom: 1px solid var(--ligne); } }
 
-/* ---------- Défilements (partenaires, langues) ---------- */
+/* ---------- Partenaires et langues ---------- */
 .partners { padding-block: var(--s-6); border-bottom: 1px solid var(--ligne); }
 .partners-title { font: 600 var(--t-s)/1.3 var(--f-texte); color: var(--acier); margin: 0 0 var(--s-3); }
-.marquee { --gap: .75rem; display: flex; gap: var(--gap); overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
-.marquee-track { flex: none; display: flex; gap: var(--gap); min-width: 100%; justify-content: space-around; list-style: none; margin: 0; padding: 0; }
-.marquee-track li { flex: none; font-weight: 600; font-size: var(--t-s); padding: .45rem .9rem; border: 1px solid var(--ligne); border-radius: 999px; background: var(--blanc); white-space: nowrap; }
-@media (prefers-reduced-motion: no-preference) {
-  .marquee-track { animation: marquee 45s linear infinite; }
-  .marquee:hover .marquee-track, .marquee:focus-within .marquee-track { animation-play-state: paused; }
-}
-@media (prefers-reduced-motion: reduce) { .marquee { flex-wrap: wrap; -webkit-mask-image: none; mask-image: none; } .marquee-track[aria-hidden="true"] { display: none; } .marquee-track { flex-wrap: wrap; justify-content: center; } }
-@keyframes marquee { to { transform: translateX(calc(-100% - var(--gap))); } }
 .langs-band { padding-block: var(--section) calc(var(--section) - 1rem); background: linear-gradient(180deg, var(--blanc), var(--papier)); }
-.marquee--big { --gap: 1.25rem; }
-.marquee--big .marquee-track li { font: 800 clamp(1.8rem, 1.3rem + 2vw, 3rem)/1.1 var(--f-titre); border: 0; background: none; padding: .2rem .4rem; color: var(--bleu); }
-.marquee--big .marquee-track li:nth-child(3n+2) { color: var(--encre); }
-.marquee--big .marquee-track li:nth-child(3n) span { -webkit-text-stroke: 1.5px var(--bleu); color: transparent; }
-.marquee--big .marquee-track li::after { content: "·"; color: var(--jaune); margin-left: 1.25rem; }
 
 /* ---------- Cartes à halo (suit la souris) ---------- */
 .spot { position: relative; isolation: isolate; }
@@ -707,12 +678,6 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--b
 .chat-launcher-dot { position: absolute; top: 9px; left: 30px; width: 9px; height: 9px; border-radius: 50%; background: var(--jaune); border: 2px solid var(--bleu); }
 @media (max-width: 480px) { .chat-launcher span:last-child { display: none; } .chat-launcher { padding: .8rem; } }
 
-/* ---------- Révélation au défilement (ajoutée par main.js, jamais sans JavaScript) ---------- */
-@media (prefers-reduced-motion: no-preference) {
-  .reveal.is-pending { opacity: 0; transform: translateY(18px); }
-  .reveal.is-in { opacity: 1; transform: none; transition: opacity .7s var(--ease), transform .7s var(--ease); }
-}
-
 /* ---------- 404 ---------- */
 .err-404 { padding-block: var(--s-9); }
 .err-404 .lead { margin-inline: auto; }
@@ -734,3 +699,28 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--b
   .facts { box-shadow: none; position: static; }
   a { color: inherit; text-decoration: none; }
 }
+
+/* ---------- Langues de formation (liste statique : aucun mouvement non demandé hors du héros) ---------- */
+.greetings { list-style: none; display: flex; flex-wrap: wrap; gap: .3rem 1.4rem; margin: 0; padding: 0; font: 800 clamp(1.4rem, 1.1rem + 1.4vw, 2.2rem)/1.15 var(--f-titre); color: var(--bleu); }
+.greetings li:nth-child(even) { color: var(--encre); }
+
+/* ---------- Photos (registre site/content/images.py, recadrées en 3:2) ---------- */
+.media { margin: 0 0 var(--s-6); border-radius: var(--r-carte); overflow: hidden; background: var(--papier); }
+.media img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; }
+.media--band img { aspect-ratio: 16 / 6; }
+@media (max-width: 760px) { .media--band img { aspect-ratio: 3 / 2; } }
+.updated { margin: var(--s-3) 0 0; font-size: var(--t-s); color: var(--acier); }
+.on-dark .updated, .f-hero .updated { color: inherit; opacity: .85; }
+.facts-title { margin: 0 0 var(--s-3); font-size: 1.25rem; }
+
+/* ---------- Héros 3D : la nuit tombe sur le panneau de chantier (hero-3d.js, WebGL2) ---------- */
+.board { transition: background-color .6s var(--ease), color .6s var(--ease), box-shadow .6s var(--ease); }
+.board-3d { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; border-radius: inherit; transition: opacity .6s var(--ease); }
+.board-3d.is-off { opacity: 0; }
+.board.is-night { transform: none; background: var(--encre); color: var(--blanc); box-shadow: 0 40px 80px -40px rgba(0, 0, 0, .8), inset 0 0 0 1px rgba(255, 255, 255, .1); }
+.board.is-night .board-title { color: var(--sur-sombre-2); }
+.board.is-night .board-grid a { color: var(--sur-sombre); }
+.board.is-night .board-grid a:hover, .board.is-night .board-grid a:focus-visible { background: rgba(255, 255, 255, .07); color: var(--blanc); }
+.board.is-night .board-grid .sign { visibility: hidden; }
+.board.is-night .board-next { border-top-color: rgba(255, 255, 255, .2); }
+.board.is-night .board-next-label, .board.is-night .board-next-empty { color: var(--sur-sombre-2); }

@@ -27,11 +27,13 @@ sys.path.insert(0, HERE)
 
 from content import common as C  # noqa: E402
 from content import routes as R  # noqa: E402
+from content import images as IMG  # noqa: E402
 from lib import logo as L  # noqa: E402
 from lib.icons import icon, sign  # noqa: E402
 sys.path.insert(0, os.path.join(HERE, "tools"))
 import import_client  # noqa: E402
 import sync_gas_i18n  # noqa: E402
+import build_kb  # noqa: E402
 
 OUT = os.path.join(ROOT, "dist")
 SRC = os.path.join(HERE, "src")
@@ -68,6 +70,9 @@ _DV = read_dev_vars()
 
 
 def cfg(key, default=""):
+    # BASE_PATH vide et explicite (site servi à la racine, Worker Cloudflare) l'emporte sur .dev.vars
+    if key == "BASE_PATH" and key in os.environ:
+        return os.environ[key]
     return os.environ.get(key) or _DV.get(key) or default
 
 
@@ -85,7 +90,10 @@ BASE = base_path(cfg("BASE_PATH"))
 
 # Les fonctions qui demandent un serveur (Worker Cloudflare, Supabase, Mollie) sont DÉSACTIVÉES par défaut : un site
 # statique (GitHub Pages) ne peut pas les faire tourner. Le code reste en place ; chaque option s'active par une variable.
+# WORKER_API=1 : le site est servi par le Worker Cloudflare (même domaine) et utilise son API /api/*.
+API = cfg("WORKER_API", "0") == "1"
 PUBLIC = {
+    "api": API,
     "siteUrl": cfg("SITE_URL", "http://localhost:8787" if DEV else C.SITE["url"]).rstrip("/"),
     "basePath": BASE,
     "supabaseUrl": cfg("SUPABASE_URL"),
@@ -96,9 +104,11 @@ PUBLIC = {
     "accounts": cfg("ACCOUNTS_ENABLED", "0") == "1",
     "onlinePayment": cfg("ONLINE_PAYMENT_ENABLED", "0") == "1",
     # Adresse qui reçoit les formulaires en JSON (Worker, Formspree…). Vide : le formulaire prépare un e-mail.
-    "formEndpoint": cfg("FORM_ENDPOINT"),
+    "formEndpoint": cfg("FORM_ENDPOINT", "/api/contact" if API else ""),
     # Liste publique des sessions avec les places en direct (JSON { status: "ok", sessions: [...] }). Vide : fichier de secours.
-    "sessionsUrl": cfg("SESSIONS_PUBLIC_URL"),
+    "sessionsUrl": cfg("SESSIONS_PUBLIC_URL", "/api/sessions" if API else ""),
+    # Réservations (Worker) : places vérifiées sous verrou par la feuille, montant calculé par la feuille
+    "registrationEndpoint": "/api/registrations" if API else "",
     "email": C.SITE["email"],
     # Destinataire des demandes préparées par e-mail (mode sans FORM_ENDPOINT). Par défaut : l'adresse du centre.
     "formEmail": cfg("FORM_EMAIL", C.SITE["email"]),
@@ -115,8 +125,10 @@ if not re.match(r"^[^@\s\"<>]+@[^@\s\"<>]+\.[A-Za-z]{2,}$", PUBLIC["formEmail"])
     sys.exit(f"Configuration invalide : FORM_EMAIL = {PUBLIC['formEmail']}")
 if PUBLIC["accounts"] and not (PUBLIC["supabaseUrl"] and PUBLIC["supabaseKey"]):
     sys.exit("ACCOUNTS_ENABLED=1 demande SUPABASE_URL et SUPABASE_PUBLISHABLE_KEY")
-if PUBLIC["onlinePayment"] and not PUBLIC["accounts"]:
-    sys.exit("ONLINE_PAYMENT_ENABLED=1 demande l'espace client (ACCOUNTS_ENABLED=1) et le Worker")
+if PUBLIC["onlinePayment"] and not API:
+    sys.exit("ONLINE_PAYMENT_ENABLED=1 demande le Worker (WORKER_API=1)")
+if PUBLIC["accounts"] and not API:
+    sys.exit("ACCOUNTS_ENABLED=1 demande le Worker (WORKER_API=1)")
 CANON = C.SITE["url"]  # adresses canoniques et données structurées : toujours le domaine officiel
 # Aperçu (GitHub Pages sans domaine, développement) : jamais indexé, pour ne pas concurrencer le domaine officiel.
 PREVIEW = urlparse(PUBLIC["siteUrl"]).netloc.removeprefix("www.") != urlparse(CANON).netloc.removeprefix("www.")
@@ -320,9 +332,10 @@ def footer_html(lang):
     doms = "".join(f'<li><a href="{R.domain(d["slug"], lang)}">{E(tx.DOMAINES[d["slug"]]["name"])}</a></li>' for d in C.DOMAINES)
     eng, cha = C.LIEUX["engis"], C.LIEUX["charleroi"]
     links = [("formations", "footer.catalog"), ("agenda", "footer.agenda"), ("entreprises", "footer.companies"), ("salles", "footer.rooms"),
-             ("centre", "footer.about_link"), ("actualites", "footer.news"), ("faq", "footer.faq"), ("contact", "nav.contact")]
+             ("centre", "footer.about_link"), ("langues", "footer.languages"), ("actualites", "footer.news"), ("faq", "footer.faq"), ("contact", "nav.contact")]
     lis = "".join(f'<li><a href="{R.page(k, lang)}">{E(t(lang, lab))}</a></li>' for k, lab in links)
-    legal = [("mentions", "footer.legal"), ("confidentialite", "footer.privacy"), ("cgv", "footer.terms"), ("plan", "footer.sitemap")]
+    legal = [("mentions", "footer.legal"), ("confidentialite", "footer.privacy"), ("cgv", "footer.terms"), ("accessibilite", "footer.accessibility"),
+             ("cookies", "footer.cookies"), ("plan", "footer.sitemap")]
     leg = "".join(f'<li><a href="{R.page(k, lang)}">{E(t(lang, lab))}</a></li>' for k, lab in legal)
     return f'''<footer class="footer on-dark">
 <div class="tape tape--thin" aria-hidden="true"></div>
@@ -381,7 +394,7 @@ def org_jsonld(lang):
         "address": {"@type": "PostalAddress", "streetAddress": eng["street"], "postalCode": eng["zip"], "addressLocality": eng["city"], "addressRegion": "Liège", "addressCountry": "BE"},
         "location": [{"@type": "Place", "name": T[lang].LIEUX[k]["full"], "address": {"@type": "PostalAddress", "streetAddress": C.LIEUX[k]["street"], "postalCode": C.LIEUX[k]["zip"], "addressLocality": C.LIEUX[k]["city"], "addressCountry": "BE"}} for k in ("engis", "charleroi")],
         "areaServed": [{"@type": "AdministrativeArea", "name": "Wallonie"}, {"@type": "Country", "name": "Belgique"}],
-        "knowsLanguage": C.LANG_CODES, "sameAs": [C.SITE["linkedin"]], "foundingDate": str(C.SITE["since"]),
+        "knowsLanguage": C.LANG_CODES, "sameAs": [C.SITE["linkedin"]], **({"foundingDate": str(C.SITE["since"])} if C.SITE["since"] else {}),
         "memberOf": {"@type": "Organization", "name": "AKT – Chambres de commerce et d'industrie de Liège-Verviers-Namur"},
     }
 
@@ -424,6 +437,37 @@ def course_jsonld(f, lang):
 # ───────────────────────────── gabarit de page
 PAGES = []  # (lang, path, alternates, prio) pour le sitemap
 GENERATED = set()
+TITLE_MAX, DESC_MAX = 60, 155  # longueurs conseillées (mission, section 10.2) : contrôlées par site/tools/check_seo.py
+
+
+def seo_title(title):
+    """Titre de l'onglet : marque ajoutée si la place le permet ; précision de lieu entre parenthèses retirée si trop long."""
+    if "Centre CFS" not in title and len(title) + 13 <= TITLE_MAX:
+        return f"{title} | Centre CFS"
+    if len(title) > TITLE_MAX:
+        short = re.sub(r"\s*\([^)]*\)\s*$", "", title)
+        if len(short) <= TITLE_MAX:
+            return short
+        short = re.sub(r"\s*[:–]\s*[^:–]*$", "", title)  # « Nom : formation à Engis (Liège) » → « Nom »
+        if 20 <= len(short) <= TITLE_MAX:
+            return short + (" | Centre CFS" if len(short) + 13 <= TITLE_MAX else "")
+        short = re.sub(r"\s*\|\s*Centre CFS$", "", title)
+        if len(short) <= TITLE_MAX and short != title:
+            return short
+    return title
+
+
+def seo_desc(desc):
+    """Meta description de 155 caractères au plus : coupée à la fin d'une phrase, sinon à un espace (« … »).
+    Le texte visible de la page n'est jamais modifié."""
+    desc = re.sub(r"\s+", " ", desc or "").strip()
+    if len(desc) <= DESC_MAX:
+        return desc
+    cut = desc[:DESC_MAX]
+    end = max(cut.rfind(". "), cut.rfind("! "), cut.rfind("? "))
+    if end >= 80:
+        return cut[:end + 1]
+    return cut[:cut.rfind(" ")].rstrip(" ,;:–-") + "…"
 
 
 def page(lang, path, title, desc, body, *, alternates=None, active=None, jsonld=None, body_class="", og_image="/assets/img/og-default.png",
@@ -435,7 +479,8 @@ def page(lang, path, title, desc, body, *, alternates=None, active=None, jsonld=
         lds.append(crumbs_jsonld(crumbs))
     lds += jsonld or []
     ld_html = "".join('<script type="application/ld+json">' + safe_json(x) + "</script>" for x in lds)
-    full_title = title if ("Centre CFS" in title or len(title) > 52) else f"{title} | Centre CFS"
+    full_title = seo_title(title)
+    desc = seo_desc(desc)
     hreflang = "".join(f'<link rel="alternate" hreflang="{R.HREFLANG[lg]}" href="{CANON + p}">' for lg, p in alternates.items())
     if "fr" in alternates:
         hreflang += f'<link rel="alternate" hreflang="x-default" href="{CANON + alternates["fr"]}">'
@@ -446,7 +491,7 @@ def page(lang, path, title, desc, body, *, alternates=None, active=None, jsonld=
     js_before = f'<script src="{asset("/assets/js/intro-gate.js")}"></script>' if home else ""
     js = [f"/assets/js/site-data.{lang}.js", "/assets/js/i18n.js", "/assets/js/main.js"] + list(scripts)
     if PUBLIC["chatbot"]:
-        js.append("/assets/js/chatbot.js")
+        js.append("/assets/js/assistant/launcher.js")
     for js_path in js:  # aucune page ne doit appeler un script absent (lien cassé + erreur dans la console)
         if not js_path.startswith("/assets/js/site-data") and not os.path.exists(os.path.join(SRC, js_path.lstrip("/"))):
             raise SystemExit(f"Script introuvable : site/src{js_path} (page {path}). Ajoutez le fichier ou désactivez l'option qui l'utilise.")
@@ -518,12 +563,19 @@ def page(lang, path, title, desc, body, *, alternates=None, active=None, jsonld=
         PAGES.append((lang, path, alternates, prio))
 
 
-_ROOT_URL = re.compile(r'(\s(?:href|src|action|poster)=")/(?!/)')
+# L'API du Worker (/api/…) est toujours servie à la racine du domaine : jamais préfixée par le chemin de base
+_ROOT_URL = re.compile(r'(\s(?:href|src|action|poster)=")/(?!/|api/)')
+
+
+_SRCSET = re.compile(r'(\ssrcset=")([^"]*)"')
 
 
 def rebase(doc):
     """Préfixe les adresses internes (« /formations/ ») par le chemin de base (« /Centre-CFS/formations/ »)."""
-    return _ROOT_URL.sub(lambda m: m.group(1) + BASE + "/", doc) if BASE else doc
+    if not BASE:
+        return doc
+    doc = _ROOT_URL.sub(lambda m: m.group(1) + BASE + "/", doc)
+    return _SRCSET.sub(lambda m: m.group(1) + re.sub(r"(^|,\s*)/(?!/)", lambda n: n.group(1) + BASE + "/", m.group(2)) + '"', doc)
 
 
 def safe_json(x):
@@ -582,6 +634,35 @@ def cta_band(lang, title=None, text=None):
 <div class="btn-row"><a class="btn btn--encre" href="{R.page("contact", lang)}?type=devis">{E(t(lang, "cta.quote"))}</a><a class="btn btn--contour-encre" href="{tel()}">{icon("phone")} {C.SITE["phone_display"]}</a></div></div></section>'''
 
 
+_IMG_META_PATH = os.path.join(HERE, "content", "images.generated.json")
+IMG_META = json.load(open(_IMG_META_PATH, encoding="utf-8")) if os.path.exists(_IMG_META_PATH) else {}
+
+
+def picture(key, lang, sizes="(min-width: 1100px) 760px, 100vw", cls="media", eager=False):
+    """Photo du registre (site/content/images.py) : <picture> AVIF + WebP en 3:2, ou rien si elle n'existe pas."""
+    if not key or key not in IMG_META or key not in IMG.IMAGES:
+        return ""
+    dims = IMG_META[key]["sizes"]
+
+    def srcset(ext):
+        return ", ".join(f"/assets/img/photos/{key}-{w}.{ext} {dims[str(w)][0]}w" for w in (480, 960, 1600))
+    w, h = dims["960"]
+    load = 'fetchpriority="high"' if eager else 'loading="lazy"'
+    return (f'<figure class="{cls}"><picture><source type="image/avif" srcset="{srcset("avif")}" sizes="{sizes}">'
+            f'<source type="image/webp" srcset="{srcset("webp")}" sizes="{sizes}">'
+            f'<img src="/assets/img/photos/{key}-960.webp" alt="{E(IMG.IMAGES[key]["alt"][lang])}" width="{w}" height="{h}" {load} decoding="async">'
+            f'</picture></figure>')
+
+
+def share_image(key):
+    """Image de partage 1200 × 630 d'une photo du registre (sinon l'image par défaut)."""
+    return f"/assets/img/partage/{key}.jpg" if key and os.path.exists(os.path.join(SRC, "assets", "img", "partage", f"{key}.jpg")) else "/assets/img/og-default.png"
+
+
+def updated_html(lang, iso=None):
+    return f'<p class="updated">{E(t(lang, "common.updated", date=long_date(iso or C.CONTENT_UPDATED, lang)))}</p>'
+
+
 def photo(img, label, alt):
     ph = f'<span class="photo-ph" aria-hidden="true">{icon("photo")}{E(label)}</span>'
     if os.path.exists(os.path.join(SRC, "assets", "img", "photos", img)):
@@ -594,10 +675,10 @@ def lieux_html(lang, clair=False):
     for k in ("engis", "charleroi", "intra"):
         lx, tx = C.LIEUX[k], T[lang].LIEUX[k]
         addr = f'<address>{E(lx["street"])}<br>{lx["zip"]} {E(lx["city"])}</address>' if lx["street"] else ""
-        link = (f'<a class="lien-fleche" href="{lx["maps"]}" rel="noopener" target="_blank">{E(t(lang, "common.directions"))} {icon("arrow")}</a>' if lx["maps"]
-                else f'<a class="lien-fleche" href="{R.page("entreprises", lang)}">{E(t(lang, "common.onsite"))} {icon("arrow")}</a>')
+        link = (f'<a class="lien-fleche" href="{lx["maps"]}" rel="noopener" target="_blank">{E(t(lang, "common.directions"))}</a>' if lx["maps"]
+                else f'<a class="lien-fleche" href="{R.page("entreprises", lang)}">{E(t(lang, "common.onsite"))}</a>')
         pin = icon("building") if k == "intra" else icon("pin")
-        out.append(f'<div class="lieu reveal"><span class="lieu-ico">{pin}</span><h3>{E(tx["full"])}</h3>{addr}<p>{E(tx["desc"])}</p>{link}</div>')
+        out.append(f'<div class="lieu"><span class="lieu-ico">{pin}</span><h3>{E(tx["full"])}</h3>{addr}<p>{E(tx["desc"])}</p>{link}</div>')
     return f'<div class="lieux{" lieux--clair" if clair else ""}">{"".join(out)}</div>'
 
 
@@ -619,8 +700,7 @@ SESSION_SCRIPTS = ["/assets/js/sessions-data.js", "/assets/js/sessions.js", "/as
 def build_home(lang):
     p = P(lang, "home")
     tx = T[lang]
-    board = "".join(f'<li><a href="{R.domain(d["slug"], lang)}">{dsign(d["slug"])}<span>{E(tx.DOMAINES[d["slug"]]["name"])}</span></a></li>' for d in C.DOMAINES)
-    stats = "".join(f'<div class="stat reveal"><dt>{E(lab)}</dt><dd data-count="{E(n)}">{E(n)}</dd></div>' for n, lab in p["stats"])
+    board = "".join(f'<li><a href="{R.domain(d["slug"], lang)}" data-domain="{d["slug"]}">{dsign(d["slug"])}<span>{E(tx.DOMAINES[d["slug"]]["name"])}</span></a></li>' for d in C.DOMAINES)
     partners = "".join(f"<li>{E(x)}</li>" for x in tx.PARTENAIRES)
     domains = []
     for i, d in enumerate(C.DOMAINES):
@@ -628,11 +708,11 @@ def build_home(lang):
         n = len(dd["formations"])
         count = t(lang, "common.formation_count_one" if n == 1 else "common.formation_count", n=n)
         items = "".join(f'<li><a href="{f["url"]}">{E(f["title"])}</a></li>' for f in dd["formations"])
-        domains.append(f'''<article class="domain spot reveal domain--{d["color"]}"><div class="domain-top">{dsign(d["slug"])}<div><h3><a href="{dd["url"]}">{E(dd["name"])}</a></h3><p class="count">{E(count)}</p></div></div><ul>{items}</ul></article>''')
-    why = "".join(f'<div class="bento-card spot reveal{" bento-card--wide" if i in (0, 3) else ""}"><span class="atout-ico">{icon(ic)}</span><h3>{E(ti)}</h3><p>{E(te)}</p>'
+        domains.append(f'''<article class="domain spot domain--{d["color"]}"><div class="domain-top">{dsign(d["slug"])}<div><h3><a href="{dd["url"]}">{E(dd["name"])}</a></h3><p class="count">{E(count)}</p></div></div><ul>{items}</ul></article>''')
+    why = "".join(f'<div class="bento-card spot{" bento-card--wide" if i in (0, 3) else ""}"><span class="atout-ico">{icon(ic)}</span><h3>{E(ti)}</h3><p>{E(te)}</p>'
                   + (f'<ul class="langues">{"".join(f"<li>{E(x)}</li>" for x in tx.LANGUES)}</ul>' if ic == "globe" else "") + "</div>"
                   for i, (ic, ti, te) in enumerate(p["why"]))
-    steps = "".join(f'<li class="reveal"><h3>{E(a)}</h3><p>{E(b)}</p></li>' for a, b in PS(lang, "home", "steps"))
+    steps = "".join(f'<li><h3>{E(a)}</h3><p>{E(b)}</p></li>' for a, b in PS(lang, "home", "steps"))
     greets = "".join(f'<li lang="{code}"><span>{E(g)}</span></li>' for code, g in C.GREETINGS)
     feats = "".join(f"<li>{icon(i)}{E(x)}</li>" for i, x in zip(("screen", "wifi", "users"), p["rooms_features"]))
     faq5 = tx.FAQ_GENERALE[:5]
@@ -643,9 +723,9 @@ def build_home(lang):
 <div class="wrap hero-inner">
 <div class="hero-copy">
 <p class="kicker"><span class="kicker-dot" aria-hidden="true"></span>{E(p["kicker"])}</p>
-<h1 id="h1">{E(p["title_a"])} <span class="mark">{E(p["title_b"])}</span></h1>
+<h1 id="h1">{E(p["title_a"])} {E(p["title_b"])}</h1>
 <p class="lead">{E(p["lead"])}</p>
-<div class="btn-row"><a class="btn btn--signal" href="{R.page("formations", lang)}">{E(p["cta_catalog"])} {icon("arrow")}</a><a class="btn btn--clair" href="{R.page("agenda", lang)}">{icon("calendar")} {E(t(lang, "cta.agenda"))}</a></div>
+<div class="btn-row"><a class="btn btn--signal" href="{R.page("formations", lang)}">{E(p["cta_catalog"])}</a><a class="btn btn--clair" href="{R.page("agenda", lang)}">{icon("calendar")} {E(t(lang, "cta.agenda"))}</a></div>
 <ul class="hero-facts">{facts}</ul>
 </div>
 <div class="hero-side">
@@ -659,14 +739,13 @@ def build_home(lang):
 <div class="tape tape--move" aria-hidden="true"></div>
 </section>
 
-<section class="stats" aria-label="Centre CFS"><div class="wrap"><dl class="stats-grid">{stats}</dl></div></section>
 
 <section class="partners" aria-labelledby="t-part"><div class="wrap"><h2 id="t-part" class="partners-title">{E(p["partners"])}</h2></div>
-<div class="marquee"><ul class="marquee-track">{partners}</ul><ul class="marquee-track" aria-hidden="true">{partners}</ul></div></section>
+<div class="wrap"><ul class="partner-chips">{partners}</ul></div></section>
 
 <section class="section" aria-labelledby="t-dom">
 <div class="wrap">
-<div class="section-head reveal"><p class="eyebrow">{E(t(lang, "nav.formations"))}</p><h2 id="t-dom">{E(p["domains_title"])}</h2><p>{E(p["domains_lead"])}</p></div>
+<div class="section-head"><h2 id="t-dom">{E(p["domains_title"])}</h2><p>{E(p["domains_lead"])}</p></div>
 <div class="domains">{"".join(domains)}</div>
 <p class="mt-6"><a class="btn btn--bleu" href="{R.page("formations", lang)}">{E(t(lang, "cta.catalog"))}</a></p>
 </div>
@@ -674,44 +753,44 @@ def build_home(lang):
 
 <section class="section section--papier" aria-labelledby="t-ag">
 <div class="wrap">
-<div class="section-head section-head--split reveal"><div><p class="eyebrow">{E(t(lang, "nav.agenda"))}</p><h2 id="t-ag">{E(p["sessions_title"])}</h2><p>{E(PS(lang, "home", "sessions_lead"))}</p></div><a class="lien-fleche" href="{R.page("agenda", lang)}">{E(p["agenda_more"])} {icon("arrow")}</a></div>
+<div class="section-head section-head--split"><div><h2 id="t-ag">{E(p["sessions_title"])}</h2><p>{E(PS(lang, "home", "sessions_lead"))}</p></div><a class="lien-fleche" href="{R.page("agenda", lang)}">{E(p["agenda_more"])}</a></div>
 {sessions_block(lang, "", T[lang].PAGES["formation"]["sessions_empty"], limit=6)}
 </div>
 </section>
 
 <section class="promise on-dark" aria-label="{E(p["promise"])}"><div class="wrap">
-<figure class="reveal"><span class="promise-mark" aria-hidden="true">“</span><blockquote><p>{E(p["promise"])}</p></blockquote><figcaption>{E(p["promise_text"])}</figcaption></figure>
+<figure ><span class="promise-mark" aria-hidden="true">“</span><blockquote><p>{E(p["promise"])}</p></blockquote><figcaption>{E(p["promise_text"])}</figcaption></figure>
 </div></section>
 
 <section class="section" aria-labelledby="t-pq"><div class="wrap">
-<div class="section-head reveal"><h2 id="t-pq">{E(p["why_title"])}</h2></div>
+<div class="section-head"><h2 id="t-pq">{E(p["why_title"])}</h2></div>
 <div class="bento">{why}</div>
 </div></section>
 
 <section class="section section--papier" aria-labelledby="t-steps"><div class="wrap">
-<div class="section-head reveal"><h2 id="t-steps">{E(p["steps_title"])}</h2></div>
+<div class="section-head"><h2 id="t-steps">{E(p["steps_title"])}</h2></div>
 <ol class="steps steps--draw">{steps}</ol>
 <p class="mt-6"><a class="btn btn--bleu" href="{R.page("agenda", lang)}">{E(t(lang, "cta.agenda"))}</a></p>
 </div></section>
 
-<section class="langs-band" aria-labelledby="t-langs"><div class="wrap"><div class="section-head reveal"><h2 id="t-langs">{E(p["langs_title"])}</h2><p>{E(p["langs_lead"])}</p></div></div>
-<div class="marquee marquee--big"><ul class="marquee-track">{greets}</ul><ul class="marquee-track" aria-hidden="true">{greets}</ul></div></section>
+<section class="langs-band" aria-labelledby="t-langs"><div class="wrap"><div class="section-head"><h2 id="t-langs">{E(p["langs_title"])}</h2><p>{E(p["langs_lead"])}</p></div></div>
+<div class="wrap"><ul class="greetings">{greets}</ul></div></section>
 
 <section class="section section--encre on-dark" aria-labelledby="t-lieux"><div class="wrap">
-<div class="section-head reveal"><h2 id="t-lieux">{E(p["how_title"])}</h2><p>{E(p["how_lead"])}</p></div>
+<div class="section-head"><h2 id="t-lieux">{E(p["how_title"])}</h2><p>{E(p["how_lead"])}</p></div>
 {lieux_html(lang)}
 </div></section>
 
 <section class="section" aria-labelledby="t-salles"><div class="wrap split">
 {photo("salle-03.jpg", P(lang, "salles", "photo").format(name=tx.SALLES[2]["name"]), P(lang, "salles", "photo_alt").format(name=tx.SALLES[2]["name"], cap=25))}
-<div class="reveal"><h2 id="t-salles">{E(p["rooms_title"])}</h2><p class="lead">{E(p["rooms_lead"])}</p>
+<div><h2 id="t-salles">{E(p["rooms_title"])}</h2><p class="lead">{E(p["rooms_lead"])}</p>
 <ul class="features">{feats}</ul>
 <p class="mt-6"><a class="btn btn--bleu" href="{R.page("salles", lang)}">{E(p["rooms_cta"])}</a></p></div>
 </div></section>
 
 <section class="section section--papier" aria-labelledby="t-faq"><div class="wrap-narrow">
 <h2 id="t-faq">{E(p["faq_title"])}</h2>{faq_html(faq5)}
-<p class="mt-6"><a class="lien-fleche" href="{R.page("faq", lang)}">{E(p["faq_more"])} {icon("arrow")}</a></p>
+<p class="mt-6"><a class="lien-fleche" href="{R.page("faq", lang)}">{E(p["faq_more"])}</a></p>
 </div></section>
 {cta_band(lang)}'''
     page(lang, R.page("home", lang), p["meta_title"], p["meta_desc"], body, alternates=all_alts("home"), active="home",
@@ -782,7 +861,7 @@ def build_formation(slug, lang):
     for i, (gt, items) in enumerate(f["programme"]):
         num = f'<span class="num" aria-hidden="true">{i + 1}</span>' if seq else ""
         lis = "".join(f"<li>{E(x)}</li>" for x in items)
-        prog.append(f'<div class="prog-group reveal"><h3>{num}{E(gt)}</h3><ul>{lis}</ul></div>')
+        prog.append(f'<div class="prog-group"><h3>{num}{E(gt)}</h3><ul>{lis}</ul></div>')
     infos = [(p["for_whom"], f["public"])]
     for key, label in (("prerequis", p["prereq"]), ("examen", p["evaluation"]), ("certificat", p["certification"])):
         if f.get(key):
@@ -805,8 +884,9 @@ def build_formation(slug, lang):
 <h1>{E(f["full"])}</h1>
 <p class="lead">{E(f["intro"])}</p>
 <ul class="f-tags">{tags_html}</ul>
+{updated_html(lang)}
 </div>
-<aside class="facts" aria-label="{E(p["fiche"])}">{prix}<dl>{dl}</dl><div class="btn-row">{book}{intra}</div></aside>
+<aside class="facts" aria-labelledby="t-brief"><h2 class="facts-title" id="t-brief">{E(t(lang, "common.in_brief"))}</h2>{prix}<dl>{dl}</dl><div class="btn-row">{book}{intra}</div></aside>
 </div></div></header>
 
 <section class="section section--papier f-sessions" data-sessions-for="{slug}" aria-labelledby="t-sess" hidden><div class="wrap">
@@ -816,6 +896,7 @@ def build_formation(slug, lang):
 
 <div class="section"><div class="wrap f-body">
 <div class="f-main">
+{picture(IMG.FORMATION_IMAGE.get(slug, IMG.DOMAIN_IMAGE[f["domain"]]), lang, cls="media media--wide")}
 <section aria-labelledby="t-obj"><h2 id="t-obj">{E(p["learn"])}</h2><ul class="checks">{obj}</ul></section>
 <section aria-labelledby="t-prog"><h2 id="t-prog">{E(p["program"])}</h2><div class="prog{" prog--days" if seq else ""}">{"".join(prog)}</div></section>
 <section aria-labelledby="t-info"><h2 id="t-info">{E(p["modalities"])}</h2><div class="info-grid">{infos_html}</div>{legal}</section>
@@ -857,9 +938,9 @@ def build_domain(slug, lang):
     head = (f'<div class="page-head page-head--domain"><div class="page-head-bg" aria-hidden="true"></div><div class="wrap">{crumbs_html(lang, crumbs)}'
             f'<div class="domain-hero">{dsign(slug, "sign sign--xl", d["name"])}<div><h1>{E(p["title"].format(name=d["long"]))}</h1><p class="lead">{E(d["intro"])}</p></div></div></div></div>')
     body = f'''{head}
-<section class="section"><div class="wrap"><ul class="f-list">{cards}</ul></div></section>
+<section class="section"><div class="wrap">{picture(IMG.DOMAIN_IMAGE.get(slug), lang, sizes="(min-width: 1240px) 1180px, 100vw", cls="media media--band")}<ul class="f-list">{cards}</ul></div></section>
 <section class="section section--papier" aria-labelledby="t-s"><div class="wrap">
-<div class="section-head section-head--split"><h2 id="t-s">{E(t(lang, "sess.next"))}</h2><a class="lien-fleche" href="{R.page("agenda", lang)}">{E(t(lang, "cta.agenda"))} {icon("arrow")}</a></div>
+<div class="section-head section-head--split"><h2 id="t-s">{E(t(lang, "sess.next"))}</h2><a class="lien-fleche" href="{R.page("agenda", lang)}">{E(t(lang, "cta.agenda"))}</a></div>
 {sessions_block(lang, f'data-domain="{slug}"', T[lang].PAGES["formation"]["sessions_empty"], limit=6)}
 </div></section>
 {faq}
@@ -867,7 +948,7 @@ def build_domain(slug, lang):
     ld = [faq_jsonld(faqs)] if faqs else []
     alts = {lg: R.domain(slug, lg) for lg in LANGS}
     page(lang, d["url"], p["meta_title"].format(name=d["name"]), f'{d["intro"]} {p["meta_suffix"]}', body, alternates=alts, active="formations",
-         jsonld=ld, crumbs=crumbs, prio="0.8", styles=("sessions.css",), scripts=SESSION_SCRIPTS)
+         jsonld=ld, crumbs=crumbs, prio="0.8", og_image=share_image(IMG.DOMAIN_IMAGE.get(slug)), styles=("sessions.css",), scripts=SESSION_SCRIPTS)
 
 
 def build_agenda(lang):
@@ -916,16 +997,17 @@ def build_entreprises(lang):
     lists = "".join(f'<div class="mega-col"><h3>{dsign(d["slug"])}<a href="{R.domain(d["slug"], lang)}">{E(tx.DOMAINES[d["slug"]]["name"])}</a></h3><ul>'
                     + "".join(f'<li><a href="{R.formation(f["slug"], lang)}">{E(tx.FORMATIONS[f["slug"]]["title"])}</a></li>' for f in C.FORMATIONS if f["domain"] == d["slug"])
                     + "</ul></div>" for d in C.DOMAINES)
-    adv = "".join(f'<div class="bento-card spot reveal"><span class="atout-ico">{icon(i)}</span><h3>{E(a)}</h3><p>{E(b)}</p>'
+    adv = "".join(f'<div class="bento-card spot"><span class="atout-ico">{icon(i)}</span><h3>{E(a)}</h3><p>{E(b)}</p>'
                   + (f'<ul class="langues">{"".join(f"<li>{E(x)}</li>" for x in tx.LANGUES)}</ul>' if i == "globe" else "") + "</div>" for i, a, b in p["adv"])
-    steps = "".join(f'<li class="reveal"><h3>{E(a)}</h3><p>{E(b)}</p></li>' for a, b in p["steps"])
+    steps = "".join(f'<li><h3>{E(a)}</h3><p>{E(b)}</p></li>' for a, b in p["steps"])
     extra = f'<div class="btn-row mt-6"><a class="btn btn--signal" href="{R.page("contact", lang)}?type=devis">{E(t(lang, "cta.quote"))}</a><a class="btn btn--contour" href="{tel()}">{icon("phone")} {C.SITE["phone_display"]}</a></div>'
     body = f'''{page_head(lang, crumbs, p["title"], p["lead"], extra)}
-<section class="section" aria-labelledby="t-av"><div class="wrap"><div class="section-head"><h2 id="t-av">{E(p["adv_title"])}</h2></div><div class="bento bento--even">{adv}</div></div></section>
+<section class="section" aria-labelledby="t-av"><div class="wrap">{picture(IMG.PAGE_IMAGE["entreprises"], lang, sizes="(min-width: 1240px) 1180px, 100vw", cls="media media--band")}<div class="section-head"><h2 id="t-av">{E(p["adv_title"])}</h2></div><div class="bento bento--even">{adv}</div></div></section>
 <section class="section section--papier" aria-labelledby="t-st"><div class="wrap"><div class="section-head"><h2 id="t-st">{E(p["steps_title"])}</h2></div><ol class="steps steps--draw">{steps}</ol></div></section>
 <section class="section" aria-labelledby="t-all"><div class="wrap"><div class="section-head"><h2 id="t-all">{E(p["all_title"])}</h2></div><div class="mega-grid mega-grid--page">{lists}</div></div></section>
 {cta_band(lang, p["cta_title"], p["cta_text"])}'''
-    page(lang, R.page("entreprises", lang), p["meta_title"], p["meta_desc"], body, alternates=all_alts("entreprises"), active="entreprises", crumbs=crumbs, prio="0.8")
+    page(lang, R.page("entreprises", lang), p["meta_title"], p["meta_desc"], body, alternates=all_alts("entreprises"), active="entreprises", crumbs=crumbs, prio="0.8",
+         og_image=share_image(IMG.PAGE_IMAGE["entreprises"]))
 
 
 def build_salles(lang):
@@ -935,7 +1017,7 @@ def build_salles(lang):
     cards = []
     for base, txt in zip(C.SALLES, tx.SALLES):
         nm = txt["name"]
-        cards.append(f'<article class="salle reveal">{photo(base["img"], p["photo"].format(name=nm), p["photo_alt"].format(name=nm, cap=base["cap"]))}<h3>{E(p["room_title"].format(name=nm, cap=base["cap"]))}</h3><p>{E(txt["desc"])}</p></article>')
+        cards.append(f'<article class="salle">{photo(base["img"], p["photo"].format(name=nm), p["photo_alt"].format(name=nm, cap=base["cap"]))}<h3>{E(p["room_title"].format(name=nm, cap=base["cap"]))}</h3><p>{E(txt["desc"])}</p></article>')
     feats = "".join(f"<li>{icon(i)}{E(x)}</li>" for i, x in zip(("screen", "wifi", "users", "clock"), p["features"]))
     prices = CLIENT.get("salles") or []
     table = ""
@@ -948,7 +1030,7 @@ def build_salles(lang):
 <section class="section section--papier" aria-labelledby="t-eq"><div class="wrap split">
 <div><h2 id="t-eq">{E(p["equip_title"])}</h2><ul class="features">{feats}</ul>{table}<p class="mt-6">{E(p["pricing"])}</p>
 <a class="btn btn--signal" href="{R.page("contact", lang)}?type=salle">{E(p["cta"])}</a></div>
-<div class="lieux lieux--clair lieux--one"><div class="lieu"><span class="lieu-ico">{icon("pin")}</span><h3>{E(tx.LIEUX["engis"]["full"])}</h3><address>{E(eng["street"])}<br>{eng["zip"]} Engis</address><a class="lien-fleche" href="{eng["maps"]}" rel="noopener" target="_blank">{E(t(lang, "common.directions"))} {icon("arrow")}</a></div></div>
+<div class="lieux lieux--clair lieux--one"><div class="lieu"><span class="lieu-ico">{icon("pin")}</span><h3>{E(tx.LIEUX["engis"]["full"])}</h3><address>{E(eng["street"])}<br>{eng["zip"]} Engis</address><a class="lien-fleche" href="{eng["maps"]}" rel="noopener" target="_blank">{E(t(lang, "common.directions"))}</a></div></div>
 </div></section>
 {cta_band(lang, p["cta_title"], p["cta_text"])}'''
     page(lang, R.page("salles", lang), p["meta_title"], p["meta_desc"], body, alternates=all_alts("salles"), active="salles", crumbs=crumbs, prio="0.7")
@@ -960,17 +1042,36 @@ def build_centre(lang):
     crumbs = [home_crumb(lang), (t(lang, "nav.centre"), R.page("centre", lang))]
     partners = "".join(f"<li>{E(x)}</li>" for x in tx.PARTENAIRES)
     langs = "".join(f"<li>{E(x)}</li>" for x in tx.LANGUES)
-    miles = "".join(f'<li class="reveal"><h3>{E(a)}</h3><p>{E(b)}</p></li>' for a, b in p["milestones"])
+    miles = "".join(f'<li><h3>{E(a)}</h3><p>{E(b)}</p></li>' for a, b in p["milestones"])
     trainers = "".join(f"<p>{E(x)}</p>" for x in p["trainers"])
     body = f'''{page_head(lang, crumbs, p["title"], p["lead"])}
 <section class="section"><div class="wrap split split--top">
-<div class="reveal"><h2>{E(p["trainers_title"])}</h2>{trainers}<ul class="langues">{langs}</ul></div>
+<div><h2>{E(p["trainers_title"])}</h2>{trainers}<ul class="langues">{langs}</ul>{picture(IMG.PAGE_IMAGE["centre"], lang, sizes="(min-width: 980px) 560px, 100vw", cls="media mt-6")}</div>
 <div><h2>{E(p["milestones_title"])}</h2><ol class="timeline">{miles}</ol></div>
 </div></section>
 <section class="section section--papier" aria-labelledby="t-p"><div class="wrap"><div class="section-head"><h2 id="t-p">{E(p["partners_title"])}</h2></div><ul class="partner-chips">{partners}</ul></div></section>
 <section class="section section--encre on-dark" aria-labelledby="t-l"><div class="wrap"><div class="section-head"><h2 id="t-l">{E(p["where_title"])}</h2></div>{lieux_html(lang)}</div></section>
 {cta_band(lang)}'''
-    page(lang, R.page("centre", lang), p["meta_title"], p["meta_desc"], body, alternates=all_alts("centre"), active="centre", crumbs=crumbs, prio="0.6")
+    page(lang, R.page("centre", lang), p["meta_title"], p["meta_desc"], body, alternates=all_alts("centre"), active="centre", crumbs=crumbs, prio="0.6",
+         og_image=share_image(IMG.PAGE_IMAGE["centre"]))
+
+
+def build_langues(lang):
+    p = P(lang, "langues")
+    tx = T[lang]
+    crumbs = [home_crumb(lang), (p["title"], R.page("langues", lang))]
+    langs = "".join(f"<li>{E(x[:1].upper() + x[1:])}</li>" for x in tx.LANGUES)
+    greets = "".join(f'<li lang="{code}"><span>{E(g)}</span></li>' for code, g in C.GREETINGS)
+    how = "".join(f"<p>{E(x)}</p>" for x in p["how"])
+    body = f'''{page_head(lang, crumbs, p["title"], p["lead"])}
+<section class="section"><div class="wrap split split--top">
+<div><h2>{E(p["list_title"])}</h2><ul class="langues">{langs}</ul><ul class="greetings mt-6" aria-hidden="true">{greets}</ul></div>
+<div>{picture(IMG.PAGE_IMAGE["langues"], lang, sizes="(min-width: 980px) 560px, 100vw")}<h2>{E(p["how_title"])}</h2>{how}
+<p class="mt-6"><a class="btn btn--bleu" href="{R.page("contact", lang)}?type=devis">{E(t(lang, "cta.quote"))}</a></p></div>
+</div></section>
+{cta_band(lang, p["cta_title"], p["cta_text"])}'''
+    page(lang, R.page("langues", lang), p["meta_title"], p["meta_desc"], body, alternates=all_alts("langues"), crumbs=crumbs, prio="0.6",
+         og_image=share_image(IMG.PAGE_IMAGE["langues"]))
 
 
 def options_formations(lang, with_price=False):
@@ -1022,6 +1123,14 @@ def field(lang, fid, label, typ="text", required=False, auto="", extra="", error
     return f'<div class="field"><label for="{fid}">{E(label)}{req}</label>{ctl}{err}</div>'
 
 
+def nojs_form(lang):
+    """Avec le Worker, le formulaire fonctionne aussi sans JavaScript : envoi classique vers /api/contact, qui répond
+    par une page de confirmation dans la bonne langue. La langue voyage dans un champ caché ajouté après l'ouverture."""
+    if not PUBLIC["api"]:
+        return ""
+    return f' method="post" action="{E(PUBLIC["formEndpoint"])}"><input type="hidden" name="lang" value="{lang}"'
+
+
 def build_contact(lang):
     p = P(lang, "contact")
     crumbs = [home_crumb(lang), (t(lang, "nav.contact"), R.page("contact", lang))]
@@ -1031,7 +1140,7 @@ def build_contact(lang):
 <section class="section"><div class="wrap form-layout">
 <div>
 <div class="form-status" data-status tabindex="-1" role="status"></div>
-<form class="form" data-api-form="contact" novalidate>
+<form class="form" data-api-form="contact" novalidate{nojs_form(lang)}>
 {hp_field()}
 <fieldset><legend>{E(t(lang, "form.your_request"))}</legend>
 <div class="row-2">
@@ -1049,7 +1158,7 @@ def build_contact(lang):
 <div class="turnstile" data-turnstile></div>
 <div><button class="btn btn--signal" type="submit">{E(t(lang, "form.submit_contact"))}</button></div>
 </form>
-<noscript><p class="notice">{E(t(lang, "form.error_text"))}</p></noscript>
+{"" if PUBLIC["api"] else '<noscript><p class="notice">' + E(t(lang, "form.error_text")) + "</p></noscript>"}
 </div>
 {contact_side(lang)}
 </div></section>'''
@@ -1141,7 +1250,7 @@ def build_articles(lang):
         txt = tx.ARTICLES[a["key"]]
         url = R.article(a["key"], lang)
         tm = f'<time datetime="{a["date"]}">{E(long_date(a["date"], lang))}</time>' if a["date"] else f'<span class="tag">{E(p["news"])}</span>'
-        cards.append(f'<li><article class="post spot reveal">{tm}<h2><a href="{url}">{E(txt["title"])}</a></h2><p>{E(txt["desc"])}</p></article></li>')
+        cards.append(f'<li><article class="post spot">{tm}<h2><a href="{url}">{E(txt["title"])}</a></h2><p>{E(txt["desc"])}</p></article></li>')
     body = f'''{page_head(lang, crumbs, p["title"], p["lead"])}
 <section class="section"><div class="wrap"><ul class="post-list">{"".join(cards)}</ul></div></section>'''
     page(lang, R.page("actualites", lang), p["meta_title"], p["meta_desc"], body, alternates=all_alts("actualites"), crumbs=crumbs, prio="0.6")
@@ -1161,15 +1270,16 @@ def build_articles(lang):
         rel_html = f'<section class="section section--papier"><div class="wrap"><h2>{E(p["related"])}</h2><ul class="related">{rel}</ul></div></section>' if rel else ""
         meta = f'<p class="muted"><time datetime="{a["date"]}">{E(p["published"].format(date=long_date(a["date"], lang)))}</time></p>' if a["date"] else ""
         body = f'''{page_head(lang, cr, txt["title"], None, meta, narrow=True)}
-<article class="section"><div class="wrap-narrow prose">{"".join(parts)}</div></article>
+<article class="section"><div class="wrap-narrow prose">{picture(IMG.ARTICLE_IMAGE.get(a["key"]), lang, sizes="(min-width: 800px) 760px, 100vw", cls="media media--wide")}{"".join(parts)}{updated_html(lang, a.get("updated") or a["date"])}</div></article>
 {rel_html}{cta_band(lang)}'''
         ld = {"@context": "https://schema.org", "@type": "Article", "headline": txt["title"], "description": txt["desc"],
               "author": {"@type": "Organization", "@id": CANON + "/#organisation", "name": "Centre CFS"}, "publisher": {"@id": CANON + "/#organisation"},
-              "mainEntityOfPage": CANON + url, "inLanguage": R.HTML_LANG[lang], "image": CANON + "/assets/img/og-default.png"}
+              "mainEntityOfPage": CANON + url, "inLanguage": R.HTML_LANG[lang], "image": CANON + share_image(IMG.ARTICLE_IMAGE.get(a["key"]))}
         if a["date"]:
             ld["datePublished"] = a["date"]
         alts = {lg: R.article(a["key"], lg) for lg in LANGS}
-        page(lang, url, txt["title"], txt["desc"], body, alternates=alts, crumbs=cr, jsonld=[ld], progress=True, prio="0.5")
+        page(lang, url, txt.get("meta_title", txt["title"]), txt["desc"], body, alternates=alts, crumbs=cr, jsonld=[ld], progress=True, prio="0.5",
+             og_image=share_image(IMG.ARTICLE_IMAGE.get(a["key"])))
 
 
 def legal_blocks(lang, blocks):
@@ -1185,7 +1295,7 @@ def legal_blocks(lang, blocks):
 
 
 def build_legal(lang):
-    for key in ("mentions", "confidentialite", "cgv"):
+    for key in ("mentions", "confidentialite", "cgv", "accessibilite", "cookies"):
         lg = T[lang].LEGAL[key]
         crumbs = [home_crumb(lang), (lg["title"], R.page(key, lang))]
         draft = f'<div class="notice notice--draft">{icon("alert")}<p>{E(lg["draft"])}</p></div>' if lg.get("draft") else ""
@@ -1202,8 +1312,8 @@ def build_plan(lang):
                    + "".join(f'<li><a href="{R.formation(f["slug"], lang)}">{E(tx.FORMATIONS[f["slug"]]["full"])}</a></li>' for f in C.FORMATIONS if f["domain"] == d["slug"])
                    + "</ul></li>" for d in C.DOMAINES)
     arts = "".join(f'<li><a href="{R.article(a["key"], lang)}">{E(tx.ARTICLES[a["key"]]["title"])}</a></li>' for a in C.ARTICLES)
-    simple = [("agenda", "nav.agenda"), ("entreprises", "footer.companies"), ("salles", "nav.salles"), ("centre", "nav.centre"), ("faq", "footer.faq"),
-              ("contact", "nav.contact")] + ([("compte", "nav.account")] if PUBLIC["accounts"] else []) + [("mentions", "footer.legal"), ("confidentialite", "footer.privacy"), ("cgv", "footer.terms")]
+    simple = [("agenda", "nav.agenda"), ("entreprises", "footer.companies"), ("salles", "nav.salles"), ("centre", "nav.centre"), ("langues", "footer.languages"), ("faq", "footer.faq"),
+              ("contact", "nav.contact")] + ([("compte", "nav.account")] if PUBLIC["accounts"] else []) + [("mentions", "footer.legal"), ("confidentialite", "footer.privacy"), ("cgv", "footer.terms"), ("accessibilite", "footer.accessibility"), ("cookies", "footer.cookies")]
     lis = "".join(f'<li><a href="{R.page(k, lang)}">{E(t(lang, lab))}</a></li>' for k, lab in simple)
     body = f'''{page_head(lang, crumbs, p["title"], narrow=True)}
 <section class="section"><div class="wrap-narrow prose"><ul>
@@ -1310,7 +1420,7 @@ def build_account_pages(lang):
                        for i, (k, lab, ic) in enumerate(tabs))
     locale_opts = "".join(f'<option value="{lg}">{E(UI[lg]["lang.name"])}</option>' for lg in LANGS)
     dashboard = f'''<section class="section acc-page" data-account hidden><div class="wrap">
-<div class="acc-head"><div><p class="eyebrow">{E(t(lang, "acc.title"))}</p><h1 data-acc-hello>{E(t(lang, "acc.title"))}</h1><p class="muted" data-acc-email></p></div>
+<div class="acc-head"><div><h1 data-acc-hello>{E(t(lang, "acc.title"))}</h1><p class="muted" data-acc-email></p></div>
 <div class="btn-row"><a class="btn btn--signal" href="{R.page("agenda", lang)}">{E(t(lang, "cta.book"))}</a><button class="btn btn--contour" type="button" data-auth-logout>{E(t(lang, "acc.logout"))}</button></div></div>
 <div class="notice" data-mfa-admin hidden><p>{E(t(lang, "acc.mfa_admin"))}</p></div>
 <div class="acc-layout"><div class="acc-tabs" role="tablist" aria-orientation="vertical">{tab_btns}</div>
@@ -1360,12 +1470,13 @@ def build_account_pages(lang):
 <button class="btn btn--bleu" type="submit">{E(ad["submit"])}</button></form></div>
 <div class="wrap-narrow" data-admin-forbidden hidden><p class="notice">{E(ad["forbidden"])}</p></div></section>'''
     page(lang, R.page("admin", lang), ad["meta_title"], ad["lead"], admin, alternates=all_alts("admin"), robots="noindex, nofollow", sitemap=False,
-         styles=("account.css",), scripts=ACCOUNT_SCRIPTS + ["/assets/js/admin.js"], body_class="is-account")
+         styles=("account.css",), scripts=ACCOUNT_SCRIPTS, body_class="is-account")  # account.js gère aussi la page admin
 
 
 # ───────────────────────────── fichiers techniques
 DATA_V = {}
-JS_KEYS = ("lang.", "nav.", "common.", "cta.", "loc.", "sess.", "form.", "reg.", "pay.", "acc.", "chat.", "intro.")
+KB_V = {}  # empreintes des bases de connaissances de l'assistant (cache)
+JS_KEYS = ("lang.", "nav.", "common.", "cta.", "loc.", "sess.", "availability.", "form.", "reg.", "pay.", "acc.", "chat.", "intro.")
 
 
 def site_data(lang):
@@ -1389,6 +1500,15 @@ def site_data(lang):
     strings = {k: v for k, v in UI[lang].items() if k.startswith(JS_KEYS)}
     cfg_pub = {k: v for k, v in PUBLIC.items() if k not in ("supabaseUrl", "supabaseKey") or PUBLIC["accounts"]}
     cfg_pub["dev"] = DEV
+    cfg_pub["hero3d"] = BASE + asset("/assets/js/hero-3d.js")  # module chargé à la demande par main.js (accueil)
+    if PUBLIC["chatbot"]:
+        # Assistant : moteur, base de connaissances et panneau chargés à la demande par launcher.js
+        cfg_pub["assistant"] = {
+            "module": BASE + asset("/assets/js/assistant/assistant.js"), "css": BASE + asset("/assets/css/assistant.css"),
+            "kb": BASE + f"/assets/data/kb.{lang}.json?v={KB_V.get(lang, '')}",
+            "sessions": [BASE + asset("/assets/js/sessions-data.js"), BASE + asset("/assets/js/sessions.js")],
+            "ai": cfg("CHATBOT_PROVIDER", "local") != "local",
+        }
     js = ("/* Généré par site/build.py — ne pas modifier. Aucune donnée secrète. */\n"
           f"self.CFS_CONFIG={json.dumps(cfg_pub, ensure_ascii=False)};\n"
           f"self.CFS_I18N={json.dumps(strings, ensure_ascii=False, separators=(',', ':'))};\n"
@@ -1434,6 +1554,11 @@ def write_worker_data():
     with open(os.path.join(gen, "routes.json"), "w", encoding="utf-8") as fh:
         json.dump(R.export(), fh, ensure_ascii=False, indent=1)
         fh.write("\n")
+    # Textes des e-mails et des réponses du Worker (mêmes sources que le site : aucune traduction dupliquée)
+    worker_keys = ("email.", "form.", "reg.", "nav.", "common.", "pay.", "acc.", "sess.", "availability.")
+    with open(os.path.join(gen, "ui.json"), "w", encoding="utf-8") as fh:
+        json.dump({lg: {k: v for k, v in UI[lg].items() if k.startswith(worker_keys)} for lg in LANGS}, fh, ensure_ascii=False, indent=1)
+        fh.write("\n")
 
 
 def origin(url):
@@ -1456,26 +1581,49 @@ def csp(meta=False):
             + "base-uri 'self'; object-src 'none'; manifest-src 'self'" + ("" if DEV else "; upgrade-insecure-requests"))
 
 
+def minify_css():
+    """Minifie les feuilles de style publiées si rcssmin est installé (pip install rcssmin ; installé par la CI).
+    Le JavaScript n'est pas minifié : les minifieurs Python ne gèrent pas toute la syntaxe ES2022 (voir DECISIONS.md)."""
+    try:
+        import rcssmin
+    except ImportError:
+        return 0
+    folder = os.path.join(OUT, "assets", "css")
+    for fn in os.listdir(folder):
+        if fn.endswith(".css"):
+            path = os.path.join(folder, fn)
+            src = open(path, encoding="utf-8").read()
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(rcssmin.cssmin(src))
+    return 1
+
+
 def write_static():
     # Ressources (sources lisibles servies telles quelles ; compression brotli par Cloudflare)
     for sub in ("css", "js", "fonts", "img", "vendor"):
         src = os.path.join(SRC, "assets", sub)
         if os.path.isdir(src):
             shutil.copytree(src, os.path.join(OUT, "assets", sub), dirs_exist_ok=True, ignore=shutil.ignore_patterns("package.json", ".DS_Store", "*.md"))
+    minify_css()
     for fn in os.listdir(os.path.join(SRC, "static")):
         shutil.copy(os.path.join(SRC, "static", fn), os.path.join(OUT, fn))
     with open(os.path.join(OUT, "favicon.svg"), "w") as fh:
         fh.write(L.favicon())
-    # Sitemap multilingue
-    urls = []
+    # Sitemaps : un fichier par langue (avec les équivalents hreflang), réunis par un index sitemap.xml
+    by_lang = {lg: [] for lg in LANGS}
     for lang, path, alts, prio in PAGES:
         links = "".join(f'<xhtml:link rel="alternate" hreflang="{R.HREFLANG[lg]}" href="{CANON + p}"/>' for lg, p in alts.items())
         if "fr" in alts:
             links += f'<xhtml:link rel="alternate" hreflang="x-default" href="{CANON + alts["fr"]}"/>'
-        urls.append(f"<url><loc>{CANON + path}</loc><lastmod>{BUILD_DATE.isoformat()}</lastmod><priority>{prio}</priority>{links}</url>")
+        by_lang[lang].append(f"<url><loc>{CANON + path}</loc><lastmod>{BUILD_DATE.isoformat()}</lastmod><priority>{prio}</priority>{links}</url>")
+    for lang, urls in by_lang.items():
+        with open(os.path.join(OUT, f"sitemap-{lang}.xml"), "w", encoding="utf-8") as fh:
+            fh.write('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">'
+                     + "".join(urls) + "</urlset>\n")
     with open(os.path.join(OUT, "sitemap.xml"), "w", encoding="utf-8") as fh:
-        fh.write('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">'
-                 + "".join(urls) + "</urlset>\n")
+        fh.write('<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+                 + "".join(f"<sitemap><loc>{CANON}/sitemap-{lg}.xml</loc><lastmod>{BUILD_DATE.isoformat()}</lastmod></sitemap>" for lg in LANGS)
+                 + "</sitemapindex>\n")
     private = ["inscription"] + (["compte"] if PUBLIC["accounts"] else []) + (["paiement"] if PUBLIC["onlinePayment"] else [])
     disallow = "".join(f"Disallow: {BASE}{R.page(k, lg)}\n" for k in private for lg in LANGS)
     with open(os.path.join(OUT, "robots.txt"), "w") as fh:
@@ -1541,6 +1689,8 @@ def main():
     if src != new:
         with open(sync_gas_i18n.GS, "w", encoding="utf-8") as fh:
             fh.write(new)
+    KB_V.update(build_kb.build({"T": T, "C": C, "R": R, "PRICE": PRICE, "BOOKABLE": BOOKABLE, "BASE": BASE, "UI": UI, "PUBLIC": PUBLIC, "P": P,
+                                "LANGS": LANGS, "OUT": OUT, "UPDATED": C.CONTENT_UPDATED, "EPI": {lg: T[lg].EPI_PREREQ for lg in LANGS}}))
     write_site_data()
     for lang in LANGS:
         build_home(lang)
@@ -1553,6 +1703,7 @@ def main():
         build_entreprises(lang)
         build_salles(lang)
         build_centre(lang)
+        build_langues(lang)
         build_contact(lang)
         build_inscription(lang)
         build_faq(lang)

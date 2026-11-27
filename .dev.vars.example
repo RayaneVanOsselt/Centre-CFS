@@ -1,27 +1,69 @@
-# Configuration locale pour `python3 site/build.py --dev` (copier ce fichier en `.dev.vars`, jamais dans Git).
-# Aucune de ces valeurs n'est secrète : elles finissent toutes dans le site publié (assets/js/site-data.*.js).
-# Sur GitHub, les mêmes noms se règlent dans Settings › Secrets and variables › Actions › Variables.
+# Réglages locaux : copier ce fichier en `.dev.vars` (JAMAIS dans Git, jamais collé dans un chat).
+# Lu par « python3 site/build.py --dev » (partie 1 seulement) et par « wrangler dev » (partie 2).
+# En production : secrets avec « npx wrangler secret put NOM », réglages publics dans [vars] de wrangler.toml.
+# Tableau complet (où trouver chaque valeur) : docs/SETUP.md et mission, section 3.4.
 
-# Adresse et chemin de base du site (GitHub Pages sans domaine : https://<compte>.github.io/Centre-CFS et /Centre-CFS)
-SITE_URL=http://localhost:8765/Centre-CFS
-BASE_PATH=/Centre-CFS
+# ───────────── 1. Site (valeurs PUBLIQUES : elles finissent dans les pages)
 
-# Destinataire des demandes préparées par e-mail (contact, devis, inscriptions)
+# Adresse du site (lue aussi par le Worker : redirections de paiement, liens des e-mails) et chemin de base
+# (vide : site servi à la racine, comme par le Worker ; « /Centre-CFS » pour imiter GitHub Pages sans domaine).
+SITE_URL=http://localhost:8787
+BASE_PATH=
+
+# 1 = le site est servi par le Worker et utilise /api/* (formulaires, sessions en direct, réservations)
+WORKER_API=0
+# Destinataire des demandes préparées par e-mail (mode sans Worker uniquement)
 FORM_EMAIL=info@centrecfs.be
-
-# Facultatif : adresse qui reçoit les formulaires en JSON (Formspree, Worker…). Vide = e-mail pré-rempli.
 FORM_ENDPOINT=
-
-# Facultatif : liste publique des sessions avec les places en direct ({ "status": "ok", "sessions": [...] })
 SESSIONS_PUBLIC_URL=
 
-# Taux de TVA des formations (21 % par défaut, à confirmer par le comptable)
-VAT_RATE=0.21
-
-# Fonctions qui demandent un serveur (Worker Cloudflare, Supabase, Mollie) : laisser à 0 sur GitHub Pages.
+# Fonctions qui demandent le Worker : 0 tant qu'il n'est pas en service
 ACCOUNTS_ENABLED=0
 ONLINE_PAYMENT_ENABLED=0
 CHATBOT_ENABLED=0
+AUTH_GOOGLE_ENABLED=0
+
+# ───────────── 2. Worker (tableau 3.4 de la mission)
+
+# Application Web Apps Script (adresse /exec) : SECRET, seul le Worker l'appelle
+RESERVATIONS_API_URL=
+# 64 caractères aléatoires, identiques dans les propriétés du script Google (HMAC_SECRET) : SECRET
+RESERVATIONS_HMAC_SECRET=
+
+# Supabase › Project Settings › API (publics) / clé secrète : SECRET
 SUPABASE_URL=
 SUPABASE_PUBLISHABLE_KEY=
+SUPABASE_SECRET_KEY=
+# Supabase › Authentication › Hooks › Send Email (format v1,whsec_…) : SECRET
+SUPABASE_EMAIL_HOOK_SECRET=
+
+# Mollie › Développeurs : clé test_… jusqu'à l'accord explicite de Rayane : SECRET
+MOLLIE_API_KEY=
+
+# EmailJS (serveur uniquement) : clé publique, clé privée (SECRET), service et deux modèles
+EMAILJS_PUBLIC_KEY=
+EMAILJS_PRIVATE_KEY=
+EMAILJS_SERVICE_ID=
+EMAILJS_TEMPLATE_CLIENT=
+EMAILJS_TEMPLATE_EQUIPE=
+EMAILJS_MONTHLY_QUOTA=200
+TEAM_NOTIFICATION_EMAIL=info@centrecfs.be
+
+# Cloudflare › Turnstile : clé du site (publique) / clé secrète : SECRET
 TURNSTILE_SITE_KEY=
+TURNSTILE_SECRET_KEY=
+
+# Chatbot : local (par défaut, aucun appel externe), workers-ai ou claude
+CHATBOT_PROVIDER=local
+CHATBOT_MODEL=
+CHATBOT_DAILY_LIMIT=200
+# Seulement si CHATBOT_PROVIDER=claude, avec une limite de dépenses dans la console Anthropic : SECRET
+ANTHROPIC_API_KEY=
+
+# Lien de redéploiement (propriétés du script Google uniquement, menu « Publier sur le site ») : SECRET
+DEPLOY_HOOK_URL=
+
+# Taux de TVA (0.21 par défaut, à confirmer par le comptable)
+VAT_RATE=0.21
+# 64 caractères aléatoires (empreinte des adresses IP pour les limites de débit) : SECRET
+IP_HASH_SALT=
