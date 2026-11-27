@@ -88,7 +88,6 @@ var FORMATIONS = [
 ];
 /* Sessions de client/sessions.csv, ajoutées par « Installer » seulement si l'onglet Sessions est vide. */
 var SEED_SESSIONS = [
-  {"training": "vca-base", "date": "2026-11-26", "endDate": null, "start": "08:30", "end": "17:00", "location": "engis", "language": "fr", "capacity": null, "published": true},
   {"training": "vca-base", "date": "2026-12-10", "endDate": null, "start": "08:30", "end": "17:00", "location": "charleroi", "language": "fr", "capacity": null, "published": true},
   {"training": "vca-ligne-hierarchique", "date": "2026-11-26", "endDate": "2026-11-27", "start": "08:30", "end": "17:00", "location": "engis", "language": "fr", "capacity": null, "published": true},
   {"training": "vca-ligne-hierarchique", "date": "2026-12-10", "endDate": "2026-12-11", "start": "08:30", "end": "17:00", "location": "charleroi", "language": "fr", "capacity": null, "published": true},

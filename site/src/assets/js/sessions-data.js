@@ -7,19 +7,7 @@
    ========================================================================= */
 (function (root) {
   "use strict";
-  var data = { generatedAt: "2026-11-26", sessions: [
-  {
-    "id": "2026-11-26-vca-base-engis",
-    "training": "vca-base",
-    "date": "2026-11-26",
-    "endDate": null,
-    "startTime": "08:30",
-    "endTime": "17:00",
-    "location": "engis",
-    "language": "fr",
-    "capacity": null,
-    "status": "open"
-  },
+  var data = { generatedAt: "2026-11-27", sessions: [
   {
     "id": "2026-12-10-vca-base-charleroi",
     "training": "vca-base",
