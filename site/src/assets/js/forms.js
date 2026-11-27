@@ -2,8 +2,9 @@
    Centre CFS — formulaires : validation accessible, envoi, formulaire de contact / devis.
 
    Deux modes d'envoi, choisis à la construction du site (site/build.py) :
-     - CFS_CONFIG.formEndpoint renseigné : la demande part en JSON vers cette adresse (Worker, Formspree…),
-       qui doit répondre { ok: true } ou { status: "ok", reference: "…" } ;
+     - CFS_CONFIG.formEndpoint renseigné (POST /api/contact du Worker) : la demande part en JSON avec un requestId
+       (gardé en cas de nouvel essai : jamais de doublon). « Merci… Référence » n'est affiché QUE si la réponse
+       contient ok: true ; sinon le message traduit du serveur et les champs en défaut sont affichés ;
      - sinon (GitHub Pages, aucun serveur) : le formulaire est vérifié puis prépare un e-mail complet adressé à
        CFS_CONFIG.formEmail (variable FORM_EMAIL). La messagerie du visiteur s'ouvre ; le message reste affiché
        avec un bouton « Copier ».
@@ -118,6 +119,27 @@
     turnstileReady.then(function (ts) { box.dataset.widget = ts.render(box, { sitekey: cfg.turnstileSiteKey, language: I.lang() }); });
     return box;
   }
+  /** Identifiant de la demande : créé une fois, réutilisé si l'envoi est réessayé, oublié après un succès. */
+  function requestId(form) {
+    if (!form.dataset.requestId) {
+      form.dataset.requestId = root.crypto && root.crypto.randomUUID ? root.crypto.randomUUID()
+        : "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+    }
+    return form.dataset.requestId;
+  }
+
+  /** Erreurs de champs renvoyées par le serveur ({ fields: { email: "invalid" } }) : marquées comme les erreurs locales. */
+  function markServerFields(form, fields) {
+    var first = null;
+    Object.keys(fields || {}).forEach(function (name) {
+      var el = form.elements[name];
+      if (!el || !el.nodeType) return;
+      setError(el, true);
+      if (!first) first = el;
+    });
+    return first;
+  }
+
   function turnstileToken(form) {
     var box = $("[data-turnstile]", form);
     var input = box && box.querySelector('input[name="cf-turnstile-response"]');
@@ -158,21 +180,24 @@
 
     var label = btn ? btn.innerHTML : "";
     if (btn) { btn.disabled = true; btn.textContent = t("form.sending"); }
-    var payload = Object.assign({ form: o.kind, lang: I.lang(), page: location.pathname, website: "", elapsedMs: Date.now() - o.startedAt }, o.payload);
+    var payload = Object.assign({ form: o.kind, requestId: requestId(form), lang: I.lang(), page: location.pathname, website: "", elapsedMs: Date.now() - o.startedAt }, o.payload);
     var token = turnstileToken(form);
     if (token) payload.turnstileToken = token;
     return root.fetch(cfg.formEndpoint, {
-      method: "POST", credentials: "omit", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(payload)
+      method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(payload)
     }).then(function (res) {
       return res.json().catch(function () { return {}; }).then(function (data) {
-        if (res.status === 429 || data.status === "rate_limited") throw { code: "rate" };
-        if (!res.ok || !(data.ok === true || data.status === "ok" || data.success === true || data.success === "true")) throw { code: "error" };
+        if (data.ok !== true) throw { code: res.status === 429 ? "rate" : "error", message: data.message, fields: data.fields };
+        delete form.dataset.requestId;
         form.hidden = true;
         showStatus(box, "ok", o.okTitle, "<p>" + esc(o.okText.replace("{ref}", data.reference || "—")) + "</p>");
         return true;
       });
     }).catch(function (err) {
-      showStatus(box, "err", t("form.error_title"), "<p>" + esc(err && err.code === "rate" ? t("form.rate_limited") : t("form.error_text")) + "</p>");
+      var msg = err && err.message ? err.message : err && err.code === "rate" ? t("form.rate_limited") : t("form.error_text");
+      showStatus(box, "err", t("form.error_title"), "<p>" + esc(msg) + "</p>");
+      var bad = err && err.fields ? markServerFields(form, err.fields) : null;
+      if (bad) bad.focus();
       if (root.turnstile && $("[data-turnstile]", form) && $("[data-turnstile]", form).dataset.widget) root.turnstile.reset($("[data-turnstile]", form).dataset.widget);
       return false;
     }).then(function (r) {
@@ -193,6 +218,8 @@
     var type = form.elements.form, training = form.elements.training;
     if (q.get("type") && type && $$("option", type).some(function (o) { return o.value === q.get("type"); })) type.value = q.get("type");
     if (q.get("formation") && training && $$("option", training).some(function (o) { return o.value === q.get("formation"); })) training.value = q.get("formation");
+    // Liste d'attente d'une session complète : la session voyage avec la demande « Être prévenu »
+    var session = /^[a-z0-9][a-z0-9-]{2,79}$/.test(q.get("session") || "") ? q.get("session") : "";
     liveCheck(form);
     turnstile(form);
 
@@ -215,7 +242,7 @@
         kind: "contact", startedAt: startedAt, subject: subject, text: text,
         okTitle: t("form.sent_title"), okText: t("form.sent_text"),
         payload: {
-          type: type.value, training: training.value, message: el.message.value.trim(), name: el.name.value.trim(),
+          form: type.value, training: training.value, sessionId: session, message: el.message.value.trim(), name: el.name.value.trim(),
           email: el.email.value.trim(), phone: el.phone.value.trim(), company: el.company.value.trim(), consent: el.consent.checked
         }
       });
@@ -223,7 +250,7 @@
   }
 
   var api = root.CfsForms = { validate: validate, check: check, liveCheck: liveCheck, showStatus: showStatus, deliver: deliver, lines: lines,
-    optionText: optionText, pageUrl: pageUrl, turnstile: turnstile,
+    optionText: optionText, pageUrl: pageUrl, turnstile: turnstile, turnstileToken: turnstileToken, requestId: requestId, markServerFields: markServerFields,
     /** Ouvre la messagerie du visiteur (remplaçable dans les tests). */
     openMail: function (url) { root.location.href = url; } };
 

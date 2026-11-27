@@ -1225,15 +1225,27 @@ function submitBooking_(body) {
     });
     appendRows_(bookings.t, bookingRows);
     if (people) appendRows_(people, peopleRows);
-    refreshCounts_(sessions, taken_(readBookings_().rows, now));
+    var takenNow = taken_(readBookings_().rows, now);
+    refreshCounts_(sessions, takenNow);
+    // Places restantes renvoyées au site : la personne qui vient de réserver voit tout de suite « 9 sur 10 »
+    items.forEach(function (i) {
+      var ss = i.sessionId ? sessions.byId[i.sessionId] : null;
+      if (ss && ss.capacity > 0) { i.capacity = ss.capacity; i.remaining = Math.max(0, ss.capacity - (takenNow[i.sessionId] || 0)); }
+    });
     SpreadsheetApp.flush();
     log_("Réservation", ref, "Info", "Nouvelle réservation (" + (online ? M_ONLINE : M_INVOICE) + ") : " + items.map(function (i) { return (i.sessionId || i.training) + " ×" + i.seats; }).join(", "));
+    // Sur facture : e-mail au client tout de suite (P1), équipe en copie cachée. En ligne : e-mail au paiement confirmé.
+    if (!online && items.some(function (i) { return i.sessionId; })) {
+      queueClient_("Réservation (facture)", "P1", c.email, order.lang, tr_(order.lang, "email.invoice_subject", { ref: ref }), tr_(order.lang, "email.invoice_title"),
+        bookingMailInner_(order.lang, c.firstName, tr_(order.lang, "email.invoice_body"), ref, items, sessions, amounts, "email.pay_invoice"), ref, null, CONFIG.TEAM_EMAIL);
+    }
     result = { status: "ok", reference: ref, payMode: order.payMode, lang: order.lang, items: items, amounts: amounts,
       expiresAt: fmt_(expires, "yyyy-MM-dd'T'HH:mm") };
   } finally {
     lock.releaseLock();
   }
   clearCache_();
+  if (result && result.status === "ok" && !result.duplicate && order.payMode === "invoice") processOutbox_(3);
   return result;
 }
 
@@ -1285,6 +1297,7 @@ function bookingSummary_(rows, sessions) {
  * la réservation n'est pas confirmée : « Remboursement à faire » + alerte à l'équipe.
  */
 function confirmPayment_(body) {
+  var sendNow = false;
   var ref = String(body.ref || ""), mollieId = String(body.mollieId || ""), cents = Number(body.amountCents);
   if (!REF_RE.test(ref) || !MOLLIE_RE.test(mollieId) || !(cents > 0)) return { status: "invalid" };
   var lock = LockService.getScriptLock();
@@ -1331,9 +1344,20 @@ function confirmPayment_(body) {
         "</b> est arrivé après l'expiration, et les places ont été reprises. Remboursez ce paiement depuis le tableau de bord Mollie, puis prévenez le client.</p>", ref);
     } else {
       log_("Paiement", ref, "Info", "Paiement confirmé (" + (cents / 100) + " €).");
+      var paidRows = rowsOf_(readBookings_(), ref).filter(function (r) { return r.session; }), first = paidRows[0];
+      if (first && first.email) {
+        var plang = first.lang || "fr";
+        var paidItems = paidRows.map(function (r) { var ss = sessions.byId[r.session]; return { training: ss ? ss.training : r.training, trainingName: r.training, sessionId: r.session, seats: r.seats }; });
+        var excl = Math.round(paidRows.reduce(function (n, r) { return n + (r.amountExcl || 0); }, 0) * 100);
+        queueClient_("Paiement reçu", "P1", first.email, plang, tr_(plang, "email.paid_subject", { ref: ref }), tr_(plang, "email.paid_title"),
+          bookingMailInner_(plang, String(first.contact || "").split(" ")[0], tr_(plang, "email.paid_body", { amount: centsText_(cents, plang) }), ref, paidItems, sessions,
+            { exclCents: excl, vatCents: cents - excl, inclCents: cents }, "email.pay_online"), ref, null, CONFIG.TEAM_EMAIL);
+        sendNow = true;
+      }
     }
     out = { status: "ok", already: false, confirmed: !conflict, conflict: conflict, booking: bookingSummary_(rowsOf_(readBookings_(), ref).filter(function (r) { return r.session; }), sessions) };
   } finally { lock.releaseLock(); }
+  if (sendNow) processOutbox_(3);
   clearCache_();
   return out;
 }
@@ -1784,9 +1808,40 @@ function sessionLine_(s, lang) {
   return "<p><b>" + esc_(trainingName_(s.training, lang, s.trainingName)) + "</b><br>" + esc_(when) + "<br>" + esc_(locationText_(s.location, lang)) + "</p>";
 }
 function plain_(html) { return String(html).replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n\n").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\n{3,}/g, "\n\n").trim(); }
-function queueClient_(kind, priority, to, lang, subject, title, inner, ref, cta) {
+function queueClient_(kind, priority, to, lang, subject, title, inner, ref, cta, bcc) {
   var html = frame_(lang, title, inner, cta);
-  return queue_({ kind: kind, priority: priority, template: "client", to: to, lang: lang, subject: subject, html: html, text: plain_(inner), ref: ref });
+  return queue_({ kind: kind, priority: priority, template: "client", to: to, bcc: bcc || "", lang: lang, subject: subject, html: html, text: plain_(inner), ref: ref });
+}
+
+/** « 302,50 € » (fr, nl) ou « €302.50 » (en). */
+function centsText_(cents, lang) {
+  var v = (Math.round(cents) / 100).toFixed(2);
+  return lang === "en" ? "€" + v : v.replace(".", ",") + " €";
+}
+
+/** Récapitulatif d'une réservation pour l'e-mail au client (tableau simple, données échappées, jamais de texte libre). */
+function bookingMailInner_(lang, name, body, ref, items, sessions, amounts, payKey) {
+  var rows = [];
+  items.forEach(function (it) {
+    var s = it.sessionId ? sessions.byId[it.sessionId] : null;
+    rows.push([tr_(lang, "email.l_training"), trainingName_(it.training, lang, it.trainingName || it.training)]);
+    if (s) {
+      rows.push([tr_(lang, "email.l_date"), longDate_(s.date, lang) + (s.endDate ? " → " + longDate_(s.endDate, lang) : "") + (s.start ? ", " + s.start + (s.end ? "–" + s.end : "") : "")]);
+      rows.push([tr_(lang, "email.l_place"), locationText_(s.location, lang)]);
+    }
+    rows.push([tr_(lang, "email.l_seats"), String(it.seats || it.quantity || "")]);
+  });
+  if (amounts) {
+    rows.push([tr_(lang, "email.l_excl"), centsText_(amounts.exclCents, lang)]);
+    rows.push([tr_(lang, "email.l_vat"), centsText_(amounts.vatCents, lang)]);
+    rows.push([tr_(lang, "email.l_incl"), centsText_(amounts.inclCents, lang)]);
+  }
+  if (payKey) rows.push([tr_(lang, "email.l_payment"), tr_(lang, payKey)]);
+  var table = '<table role="presentation" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-size:14px">' + rows.map(function (r) {
+    return '<tr><td style="color:#4A5869;padding-right:16px;vertical-align:top">' + esc_(r[0]) + "</td><td>" + esc_(r[1]) + "</td></tr>";
+  }).join("") + "</table>";
+  return "<p>" + esc_(name ? tr_(lang, "email.hello", { name: name }) : tr_(lang, "email.hello_anon")) + "</p><p>" + esc_(body) + "</p><p><b>" +
+    esc_(tr_(lang, "email.ref", { ref: ref })) + "</b></p>" + table;
 }
 
 /* ======================================================================= tâche automatique (toutes les 10 minutes) */

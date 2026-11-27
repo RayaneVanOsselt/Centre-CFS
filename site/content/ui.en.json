@@ -6,7 +6,6 @@
   "lang.banner": "This page is available in English.",
   "lang.banner_go": "Read in English",
   "lang.banner_close": "Keep this language",
-
   "nav.skip": "Skip to content",
   "nav.main": "Main navigation",
   "nav.home": "Centre CFS, home",
@@ -26,7 +25,6 @@
   "nav.call": "Call {phone}",
   "nav.breadcrumb": "Breadcrumb",
   "nav.home_crumb": "Home",
-
   "footer.about": "Training centre for workplace safety. VCA, BA4/BA5, first aid, firefighting and work equipment, in Wallonia and in 11 languages.",
   "footer.reach": "Contact us",
   "footer.domains": "Areas",
@@ -49,7 +47,6 @@
   "footer.languages": "Training languages",
   "footer.accessibility": "Accessibility",
   "footer.cookies": "Cookies",
-
   "common.htva": "excl. VAT",
   "common.quote": "On request",
   "common.consult": "Contact us",
@@ -77,7 +74,6 @@
   "common.no": "No",
   "common.in_brief": "At a glance",
   "common.updated": "Updated on {date}",
-
   "cta.book": "Book a place",
   "cta.quote": "Request a quote",
   "cta.notify": "Get notified of the next date",
@@ -87,17 +83,14 @@
   "cta.contact": "Contact us",
   "cta.call": "Call",
   "cta.describe": "Describe my needs",
-
   "intro.skip": "Skip animation",
   "intro.label": "Centre CFS",
-
   "loc.engis": "Engis",
   "loc.charleroi": "Charleroi",
   "loc.intra": "At your premises",
   "loc.engis_full": "Centre CFS, Engis",
   "loc.charleroi_full": "CEME, Charleroi",
   "loc.intra_full": "At your premises",
-
   "sess.next": "Upcoming sessions",
   "sess.live": "Places updated live",
   "sess.full": "Full",
@@ -140,7 +133,6 @@
   "sess.changed": "Places updated.",
   "sess.price_excl": "{price} excl. VAT",
   "sess.loading": "Loading sessions…",
-
   "form.required": "required",
   "form.optional": "optional",
   "form.choose": "Choose",
@@ -191,7 +183,6 @@
   "form.mail_subject_registration": "Website – Registration: {training}",
   "form.mail_footer": "Request prepared on {url}",
   "form.mail_indicative": "indicative amount, confirmed by Centre CFS",
-
   "reg.title": "Book a place",
   "reg.step_session": "Session",
   "reg.step_people": "Participants",
@@ -255,7 +246,6 @@
   "reg.busy": "Many bookings at once: please try again in a few seconds. Nothing has been booked.",
   "reg.pay_invoice_hint_request": "We confirm your place by email, then send the invoice (payment by bank transfer).",
   "reg.recap_note_request": "Indicative amount: our team confirms the place and the amount before sending the invoice.",
-
   "pay.title": "Payment",
   "pay.checking": "Checking your payment…",
   "pay.paid_title": "Payment received, booking confirmed",
@@ -274,7 +264,6 @@
   "pay.unknown_text": "The link is incomplete or has expired. You can find your bookings in your account, or call us.",
   "pay.to_account": "See my bookings",
   "pay.to_agenda": "Back to the schedule",
-
   "acc.title": "My account",
   "acc.login_title": "Sign in",
   "acc.signup_title": "Create an account",
@@ -374,7 +363,6 @@
   "acc.delete_button": "Delete permanently",
   "acc.deleted": "Your account has been deleted.",
   "acc.reauth": "For this action, please sign in again first (security).",
-
   "chat.open": "Any questions?",
   "chat.title": "Centre CFS assistant",
   "chat.ai_notice": "You are chatting with an AI assistant. It can make mistakes: check important information or contact us.",
@@ -392,7 +380,6 @@
   "chat.verify": "An anti-bot check is needed before the first message.",
   "chat.privacy": "Please don't share personal data. Anonymised questions are kept for 90 days (see the privacy policy).",
   "chat.reset": "New conversation",
-
   "email.tagline": "Workplace safety training",
   "email.footer": "Automatic email from Centre CFS. If you have any questions, simply reply to this message.",
   "email.hello": "Hello {name},",
@@ -472,5 +459,24 @@
   "email.auth_invite_cta": "Accept the invitation",
   "email.auth_otp_subject": "Your verification code – Centre CFS",
   "email.auth_otp_title": "Your verification code",
-  "email.auth_otp_body": "Enter this code to confirm the action: {code}"
+  "email.auth_otp_body": "Enter this code to confirm the action: {code}",
+  "availability.open": "{remaining} of {capacity} places available",
+  "availability.low": "Last places: {remaining} of {capacity}",
+  "availability.last": "Last place",
+  "availability.full": "Full",
+  "availability.closed": "Online booking closed",
+  "availability.on_request": "Places on request",
+  "availability.cancelled": "Session cancelled",
+  "availability.live": "Places updated live",
+  "availability.indicative": "Availability is indicative and confirmed when you book",
+  "availability.waitlist": "Join the waiting list",
+  "availability.book": "Book this session",
+  "availability.empty": "No sessions are scheduled at the moment.",
+  "availability.error_full": "This session is full.",
+  "availability.error_not_enough": "Only {remaining} place(s) left for this session.",
+  "availability.form_success": "Thank you, we have received your request. Reference: {reference}",
+  "availability.form_error": "Your request could not be sent. Please try again, email info@centrecfs.be or call +32 475 34 02 89.",
+  "availability.fallback": "Indicative dates: availability to be confirmed",
+  "availability.remaining_hint": "{remaining} place(s) left for this session.",
+  "form.back": "Back to the website"
 }

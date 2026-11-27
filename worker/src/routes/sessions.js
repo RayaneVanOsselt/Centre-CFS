@@ -33,6 +33,29 @@ export function publicSession(s) {
   };
 }
 
+function defaultCache() {
+  return globalThis.caches ? /** @type {any} */ (globalThis.caches).default : null;
+}
+function cacheKey(request) {
+  return new Request(new URL("/api/sessions?all=1", request.url).toString());
+}
+
+/** Après une réservation : la liste en cache du centre de données local est oubliée (les autres expirent en 30 s). */
+export async function purgeSessionsCache(request, cache = defaultCache()) {
+  if (!cache) return;
+  try {
+    await cache.delete(cacheKey(request));
+  } catch {
+    /* cache indisponible */
+  }
+}
+
+/** Empreinte courte du contenu (en-tête ETag). */
+async function etagOf(text) {
+  const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return '"' + Array.from(new Uint8Array(h).slice(0, 12), (b) => b.toString(16).padStart(2, "0")).join("") + '"';
+}
+
 /**
  * @param {Request} request
  * @param {Record<string, any>} env
@@ -41,8 +64,8 @@ export function publicSession(s) {
  */
 export async function getSessions(request, env, ctx, deps = {}) {
   const url = new URL(request.url);
-  const cache = deps.cache !== undefined ? deps.cache : (globalThis.caches ? /** @type {any} */ (globalThis.caches).default : null);
-  const key = new Request(new URL("/api/sessions?all=1", url).toString());
+  const cache = deps.cache !== undefined ? deps.cache : defaultCache();
+  const key = cacheKey(request);
   /** @type {Record<string, any> | null} */
   let data = null;
   if (cache) {
@@ -59,5 +82,9 @@ export async function getSessions(request, env, ctx, deps = {}) {
   }
   const formation = url.searchParams.get("formation");
   const sessions = formation ? data.sessions.filter((s) => s.training === formation) : data.sessions;
-  return json({ ...data, sessions }, 200, { "Cache-Control": "public, max-age=30" });
+  const body = { ...data, sessions };
+  const etag = await etagOf(JSON.stringify(body));
+  const headers = { "Cache-Control": "public, max-age=30", ETag: etag };
+  if (request.headers.get("If-None-Match") === etag) return new Response(null, { status: 304, headers });
+  return json(body, 200, headers);
 }

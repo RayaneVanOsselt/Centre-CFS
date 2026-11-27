@@ -17,13 +17,21 @@
   function title(s) { var f = S.training(s.training); return f ? f.title : s.training; }
   function trainingUrl(s) { var f = S.training(s.training); return f ? f.url : S.route("formations"); }
 
-  /** Bouton d'action : réservation ferme (places en direct + paiement en ligne) ou demande de place. */
+  /** Lien « liste d'attente » d'une session complète (demande « Être prévenu », aucune place prise). */
+  function waitlistUrl(s) {
+    return S.route("contact") + "?type=prevenir&formation=" + encodeURIComponent(s.training) + "&session=" + encodeURIComponent(s.id);
+  }
+
+  /** Bouton d'action : réservation ferme (places en direct via le Worker), demande de place ou liste d'attente. */
   function action(s, cls) {
     var lv = S.level(s);
-    if (lv === "closed" || lv === "full") {
+    if (lv === "full") {
+      return '<a class="btn btn--contour ' + cls + '" href="' + esc(waitlistUrl(s)) + '">' + esc(t("availability.waitlist")) + "</a>";
+    }
+    if (lv === "closed") {
       return '<a class="btn btn--contour ' + cls + '" href="' + esc(trainingUrl(s)) + '">' + esc(t("sess.view")) + "</a>";
     }
-    var firm = s.live && cfg.onlinePayment;
+    var firm = s.live && (cfg.onlinePayment || cfg.api);
     // Bouton bleu : le seul bouton jaune de l'écran reste l'action principale de la page (charte, un seul jaune).
     return '<a class="btn btn--bleu ' + cls + '" href="' + esc(S.bookUrl(s)) + '">' + esc(t(firm ? "sess.book" : "sess.request")) + "</a>";
   }
@@ -76,7 +84,7 @@
     } else {
       seats = "";
     }
-    var note = s.live ? '<p class="wss-card__note">' + esc(t("sess.indicative")) + "</p>" : "";
+    var note = '<p class="wss-card__note">' + esc(t(s.live ? "availability.indicative" : "availability.fallback")) + "</p>";
     return "<" + tag + ' class="wss-card wss-card--' + lv + '" data-session-id="' + esc(s.id) + '">' +
       '<div class="wss-card__top">' + sign(s) + '<div><p class="wss-card__eyebrow">' + esc(S.dateText(s)) + "</p>" +
       '<h3 class="wss-card__title"><a href="' + esc(trainingUrl(s)) + '">' + esc(title(s)) + "</a></h3></div></div>" +
@@ -120,8 +128,23 @@
 
   function showLive(res, sel) { $$(sel).forEach(function (el) { el.hidden = !res.live; }); }
 
+  /** Zone d'annonce discrète pour les lecteurs d'écran (changement de places pendant que la page est ouverte). */
+  function announce(text) {
+    var r = document.getElementById("cfs-live-region");
+    if (!r) {
+      r = document.createElement("div");
+      r.id = "cfs-live-region";
+      r.className = "sr-only";
+      r.setAttribute("role", "status");
+      r.setAttribute("aria-live", "polite");
+      document.body.appendChild(r);
+    }
+    r.textContent = "";
+    root.setTimeout(function () { r.textContent = text; }, 50);
+  }
+
   /* ---------- Rendu automatique selon les blocs présents dans la page ---------- */
-  S.load().then(function (res) {
+  function render(res) {
     var all = res.sessions;
     var upcoming = all.filter(function (s) { return S.level(s) !== "closed"; });
     showLive(res, "[data-live]");
@@ -151,7 +174,27 @@
       hero.innerHTML = '<p class="board-next-label">' + (ICON.calendar || "") + esc(hero.getAttribute("data-label") || t("sess.next")) + "</p>" +
         '<ul class="permits">' + permit(upcoming[0]) + "</ul>";
     }
+  }
+
+  S.load().then(render);
+
+  // Places modifiées pendant la lecture (relecture toutes les 45 s, ou réservation qui vient d'aboutir) :
+  // nouveau rendu, focus clavier conservé, annonce discrète, ticket mis en évidence.
+  document.addEventListener("cfs:sessions", function (e) {
+    var a = document.activeElement, box = a && a.closest ? a.closest("[data-session-id]") : null;
+    var keep = box ? { id: box.getAttribute("data-session-id"), href: a.getAttribute("href") } : null;
+    render({ sessions: e.detail.sessions, live: e.detail.live });
+    e.detail.changed.forEach(function (id) {
+      $$("[data-session-id]").forEach(function (el) { if (el.getAttribute("data-session-id") === id) el.classList.add("is-updated"); });
+    });
+    if (keep) {
+      $$("[data-session-id]").forEach(function (el) {
+        if (el.getAttribute("data-session-id") !== keep.id) return;
+        $$("a", el).forEach(function (l) { if (l.getAttribute("href") === keep.href) l.focus(); });
+      });
+    }
+    announce(t("sess.changed"));
   });
 
-  root.CfsSessionsUI = { permit: permit, card: card, renderList: renderList, paintGauges: paintGauges, showLive: showLive };
+  root.CfsSessionsUI = { permit: permit, card: card, renderList: renderList, paintGauges: paintGauges, showLive: showLive, waitlistUrl: waitlistUrl, announce: announce };
 })(typeof self !== "undefined" ? self : this);

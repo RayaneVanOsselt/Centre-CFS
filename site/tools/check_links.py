@@ -52,6 +52,8 @@ def target(page, ref):
     path = unquote(u.path)
     if not path:
         return None
+    if path.startswith("/api/"):  # API du Worker (formulaires sans JavaScript), toujours à la racine : pas un fichier du site
+        return None
     if path.startswith("/"):
         if BASE:
             if not path.startswith(BASE + "/") and path != BASE:

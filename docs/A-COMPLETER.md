@@ -65,3 +65,12 @@ dans `docs/RAPPORT-IMPORT.md` (régénéré à chaque construction).
 
 - [ ] **Financement** : page prévue par la mission (section 9.5), à rédiger seulement avec les dispositifs que le Centre CFS
       confirme (Cefora, congé-éducation payé…), sources officielles à l'appui ; la fin des chèques-formation est déjà dans la FAQ
+
+## 7. Mise en service technique (phases 4 à 6)
+
+- [ ] Suivre `docs/SETUP.md` (feuille, Cloudflare, EmailJS, Turnstile) puis `docs/BRANCHEMENT-FORMULAIRES.md` (tests réels)
+- [ ] **Capacité** de chaque session dans l'onglet Sessions (sans capacité : « Places sur demande ») — `client/sessions.csv`
+      n'en donne aucune
+- [ ] Générer la version PDF de `docs/GUIDE-FEUILLE.md` pour l'équipe (*Imprimer › Enregistrer en PDF* depuis GitHub)
+- [ ] Taux de TVA (`VAT_RATE`, 21 % par défaut) et mentions des e-mails de réservation : **à valider par le comptable**
+- [ ] Durée de conservation des demandes (`REQUEST_RETENTION_MONTHS`) à choisir et à reporter dans la confidentialité

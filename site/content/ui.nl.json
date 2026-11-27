@@ -6,7 +6,6 @@
   "lang.banner": "Deze pagina bestaat in het Nederlands.",
   "lang.banner_go": "Lees in het Nederlands",
   "lang.banner_close": "Deze taal behouden",
-
   "nav.skip": "Naar de inhoud",
   "nav.main": "Hoofdnavigatie",
   "nav.home": "Centre CFS, startpagina",
@@ -26,7 +25,6 @@
   "nav.call": "Bel {phone}",
   "nav.breadcrumb": "Kruimelpad",
   "nav.home_crumb": "Home",
-
   "footer.about": "Opleidingscentrum voor de veiligheid van werknemers. VCA, BA4/BA5, eerste hulp, brandbestrijding en arbeidsmiddelen, in Wallonië en in 11 talen.",
   "footer.reach": "Contact",
   "footer.domains": "Domeinen",
@@ -49,7 +47,6 @@
   "footer.languages": "Opleidingstalen",
   "footer.accessibility": "Toegankelijkheid",
   "footer.cookies": "Cookies",
-
   "common.htva": "excl. btw",
   "common.quote": "Op aanvraag",
   "common.consult": "Neem contact op",
@@ -77,7 +74,6 @@
   "common.no": "Nee",
   "common.in_brief": "In het kort",
   "common.updated": "Bijgewerkt op {date}",
-
   "cta.book": "Een plaats reserveren",
   "cta.quote": "Offerte aanvragen",
   "cta.notify": "Verwittigd worden bij de volgende datum",
@@ -87,17 +83,14 @@
   "cta.contact": "Contact opnemen",
   "cta.call": "Bellen",
   "cta.describe": "Mijn behoefte beschrijven",
-
   "intro.skip": "Animatie overslaan",
   "intro.label": "Centre CFS",
-
   "loc.engis": "Engis",
   "loc.charleroi": "Charleroi",
   "loc.intra": "In uw bedrijf",
   "loc.engis_full": "Centre CFS, Engis",
   "loc.charleroi_full": "CEME, Charleroi",
   "loc.intra_full": "In uw bedrijf",
-
   "sess.next": "Volgende sessies",
   "sess.live": "Plaatsen live bijgewerkt",
   "sess.full": "Volzet",
@@ -140,7 +133,6 @@
   "sess.changed": "Plaatsen bijgewerkt.",
   "sess.price_excl": "{price} excl. btw",
   "sess.loading": "Sessies laden…",
-
   "form.required": "verplicht",
   "form.optional": "optioneel",
   "form.choose": "Kiezen",
@@ -191,7 +183,6 @@
   "form.mail_subject_registration": "Website – Inschrijving: {training}",
   "form.mail_footer": "Aanvraag opgesteld op {url}",
   "form.mail_indicative": "indicatief bedrag, bevestigd door Centre CFS",
-
   "reg.title": "Een plaats reserveren",
   "reg.step_session": "Sessie",
   "reg.step_people": "Deelnemers",
@@ -255,7 +246,6 @@
   "reg.busy": "Veel reserveringen tegelijk: probeer het binnen enkele seconden opnieuw. Er is niets gereserveerd.",
   "reg.pay_invoice_hint_request": "We bevestigen uw plaats per e-mail en sturen daarna de factuur (betaling via overschrijving).",
   "reg.recap_note_request": "Indicatief bedrag: ons team bevestigt de plaats en het bedrag voordat de factuur wordt verstuurd.",
-
   "pay.title": "Betaling",
   "pay.checking": "We controleren uw betaling…",
   "pay.paid_title": "Betaling ontvangen, reservering bevestigd",
@@ -274,7 +264,6 @@
   "pay.unknown_text": "De link is onvolledig of verlopen. U vindt uw reserveringen in uw klantenzone, of bel ons.",
   "pay.to_account": "Mijn reserveringen bekijken",
   "pay.to_agenda": "Terug naar de agenda",
-
   "acc.title": "Mijn account",
   "acc.login_title": "Aanmelden",
   "acc.signup_title": "Account aanmaken",
@@ -374,7 +363,6 @@
   "acc.delete_button": "Definitief verwijderen",
   "acc.deleted": "Uw account is verwijderd.",
   "acc.reauth": "Meld u voor deze actie eerst opnieuw aan (beveiliging).",
-
   "chat.open": "Een vraag?",
   "chat.title": "Assistent van Centre CFS",
   "chat.ai_notice": "U praat met een AI-assistent. Hij kan zich vergissen: controleer belangrijke informatie of neem contact met ons op.",
@@ -392,7 +380,6 @@
   "chat.verify": "Voor het eerste bericht is een controle tegen robots nodig.",
   "chat.privacy": "Deel geen persoonsgegevens. Geanonimiseerde vragen worden 90 dagen bewaard (zie het privacybeleid).",
   "chat.reset": "Nieuw gesprek",
-
   "email.tagline": "Opleidingen veiligheid op het werk",
   "email.footer": "Automatische e-mail van Centre CFS. Hebt u een vraag? Beantwoord dan gewoon dit bericht.",
   "email.hello": "Beste {name},",
@@ -472,5 +459,24 @@
   "email.auth_invite_cta": "Uitnodiging aanvaarden",
   "email.auth_otp_subject": "Uw verificatiecode – Centre CFS",
   "email.auth_otp_title": "Uw verificatiecode",
-  "email.auth_otp_body": "Vul deze code in om de handeling te bevestigen: {code}"
+  "email.auth_otp_body": "Vul deze code in om de handeling te bevestigen: {code}",
+  "availability.open": "{remaining} van {capacity} plaatsen beschikbaar",
+  "availability.low": "Laatste plaatsen: {remaining} van {capacity}",
+  "availability.last": "Laatste plaats",
+  "availability.full": "Volzet",
+  "availability.closed": "Online inschrijvingen afgesloten",
+  "availability.on_request": "Plaatsen op aanvraag",
+  "availability.cancelled": "Sessie geannuleerd",
+  "availability.live": "Plaatsen live bijgewerkt",
+  "availability.indicative": "Beschikbaarheid ter indicatie, bevestigd bij reservering",
+  "availability.waitlist": "Op de wachtlijst zetten",
+  "availability.book": "Deze sessie reserveren",
+  "availability.empty": "Er zijn momenteel geen sessies gepland.",
+  "availability.error_full": "Deze sessie is volzet.",
+  "availability.error_not_enough": "Er zijn nog maar {remaining} plaats(en) voor deze sessie.",
+  "availability.form_success": "Bedankt, uw aanvraag is goed ontvangen. Referentie: {reference}",
+  "availability.form_error": "Uw aanvraag kon niet worden verzonden. Probeer opnieuw, mail naar info@centrecfs.be of bel 0475 34 02 89.",
+  "availability.fallback": "Indicatieve data: beschikbaarheid te bevestigen",
+  "availability.remaining_hint": "Er zijn nog {remaining} plaats(en) voor deze sessie.",
+  "form.back": "Terug naar de website"
 }

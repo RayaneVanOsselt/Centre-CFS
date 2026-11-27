@@ -3,6 +3,8 @@
 
     python3 site/build.py            # crée worker/src/generated/ (textes et routes du Worker)
     python3 scripts/serve-tests.py   # puis ouvrir http://localhost:8766/tests/browser/
+
+Banc de bout en bout (site construit + vrai Worker + vrai moteur Apps Script, sans Node) : voir tests/browser/e2e.html.
 """
 import functools
 import http.server
@@ -18,6 +20,7 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
 
     def end_headers(self):
         self.send_header("Cache-Control", "no-store")
+        self.send_header("Service-Worker-Allowed", "/")  # banc de bout en bout : tests/browser/api-sw.js contrôle /dist/
         super().end_headers()
 
     def log_message(self, *args):

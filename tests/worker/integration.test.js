@@ -34,6 +34,10 @@ test("GET /api/sessions : places en direct, aucune donnée personnelle, filtre p
   const one = await r.json();
   assert.equal(one.sessions.length, 1);
   assert.match(r.headers.get("Cache-Control"), /max-age=30/);
+  const etag = r.headers.get("ETag");
+  assert.ok(etag);
+  const again = await call(b, new Request(SITE + "/api/sessions?formation=harnais", { headers: { "If-None-Match": etag } }));
+  assert.equal(again.status, 304, "liste inchangée : 304 sans corps");
   assert.doesNotMatch(JSON.stringify(one), /@|Dupont|phone/);
 });
 
@@ -43,6 +47,8 @@ test("réservation entreprise sur facture : 10 → 9 sur 10, puis 4 places → 5
   assert.equal(r1.ok, true);
   assert.match(r1.reference, /^CFS-\d{4}-/);
   assert.equal(r1.status, "pending_invoice");
+  assert.equal(r1.remaining, 9, "places renvoyées tout de suite au navigateur");
+  assert.equal(r1.capacity, 10);
   assert.equal((await sessionsOf(b)).find((s) => s.id === b.sessionId).remaining, 9, "l'exemple de la mission : 9 sur 10");
 
   const four = Array.from({ length: 4 }, (_, i) => ({ firstName: "P" + i, lastName: "Test" }));

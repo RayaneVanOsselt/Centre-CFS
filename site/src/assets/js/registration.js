@@ -1,8 +1,11 @@
 /* =========================================================================
    Centre CFS — page d'inscription : choix de la session, participants, facturation, récapitulatif.
 
-   Sur un site statique (aucun Worker), l'inscription est une DEMANDE : elle est envoyée par CfsForms.deliver
-   (adresse FORM_ENDPOINT si elle est configurée, sinon e-mail pré-rempli) et l'équipe confirme la place.
+   Avec le Worker (CFS_CONFIG.api) : POST /api/registrations. La feuille vérifie les places SOUS VERROU et calcule le
+   montant ; selon le cas, la réponse est une réservation sur facture (entreprise avec n° de TVA, places bloquées 72 h),
+   un paiement en ligne (redirection Mollie, places bloquées 30 min) ou une demande (particulier sans paiement en ligne,
+   date à convenir). Les places restantes renvoyées sont appliquées tout de suite (CfsSessions.apply).
+   Sans Worker (site statique), l'inscription est une DEMANDE envoyée par CfsForms.deliver (e-mail pré-rempli).
    Le montant affiché est indicatif (même calcul que la feuille : centimes entiers, TVA arrondie au centime).
    Pré-remplissage : ?formation=vca-base&session=2026-12-10-vca-base-charleroi
    ========================================================================= */
@@ -50,7 +53,7 @@
     var msg = "";
     if (slug && wanted && !radios.some(function (r) { return r.value === wanted && !r.disabled; })) msg = t("reg.session_unavailable");
     else if (slug && !mine.length) msg = t("reg.no_sessions");
-    hint.textContent = msg;
+    hint.textContent = msg || sessionHint();
     wanted = null; // la session demandée dans l'adresse ne sert qu'au premier affichage
     updateRecap();
   }
@@ -58,6 +61,35 @@
   function selectedSession() {
     var r = $('input[name="sessionId"]:checked', picks);
     return r && r.value ? sessions.filter(function (s) { return s.id === r.value; })[0] || null : null;
+  }
+
+  /** Indication sous les sessions : places restantes (en direct) ou confirmation par l'équipe. */
+  function sessionHint() {
+    var s = selectedSession();
+    if (!s) return "";
+    if (!s.live) return t("reg.session_not_live");
+    if (s.seatsLeft != null && s.capacity) return t("availability.remaining_hint", { remaining: s.seatsLeft });
+    return "";
+  }
+
+  /** Mode de paiement choisi ; « invoice » si le paiement en ligne n'est pas proposé. */
+  function payMode() {
+    var r = $('input[name="payMode"]:checked', form);
+    return r && r.value === "online" && cfg.onlinePayment ? "online" : "invoice";
+  }
+
+  /** La réservation bloquera-t-elle des places ? (sinon : demande traitée par l'équipe) */
+  function firmBooking() {
+    var s = selectedSession();
+    if (!cfg.api || !s || !s.live) return false;
+    if (payMode() === "online") return true;
+    return billingType() === "company" && !!form.elements.vat.value.trim();
+  }
+
+  function syncSubmit() {
+    var b = $("[data-reg-submit]", form);
+    if (!b || b.disabled) return;
+    b.textContent = t(!firmBooking() ? "reg.submit_request" : payMode() === "online" ? "reg.submit_pay" : "reg.submit_invoice");
   }
 
   /* ---------- Participants ---------- */
@@ -111,6 +143,48 @@
     $("[data-r-excl]", r).textContent = m.a ? I.cents(m.a.exclCents) : trainingSel.value ? t("common.quote") : "—";
     $("[data-r-vat]", r).textContent = m.a ? I.cents(m.a.vatCents) : "—";
     $("[data-r-incl]", r).textContent = m.a ? I.cents(m.a.inclCents) : trainingSel.value ? t("common.quote") : "—";
+    syncSubmit();
+  }
+
+  /* ---------- Envoi au Worker (réservation réelle) ---------- */
+  function statusBox() { return $("[data-status]", form.parentElement) || $("[data-status]"); }
+
+  function sendToWorker(payload, s) {
+    var btn = $("[data-reg-submit]", form), label = btn ? btn.textContent : "";
+    if (btn) { btn.disabled = true; btn.textContent = t("form.sending"); }
+    var token = F.turnstileToken(form);
+    if (token) payload.turnstileToken = token;
+    return root.fetch(cfg.registrationEndpoint || "/api/registrations", {
+      method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(payload)
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; });
+    }).then(function (data) {
+      if (s && typeof data.remaining === "number") S.apply(s.id, data.remaining, data.capacity);
+      if (data.ok !== true) {
+        var first = data.fields ? F.markServerFields(form, data.fields) : null;
+        F.showStatus(statusBox(), "err", t("form.error_title"), "<p>" + esc(data.message || t("form.error_text")) + "</p>");
+        if (first) first.focus();
+        if (root.turnstile && $("[data-turnstile]", form) && $("[data-turnstile]", form).dataset.widget) root.turnstile.reset($("[data-turnstile]", form).dataset.widget);
+        return false;
+      }
+      delete form.dataset.requestId;
+      if (data.paymentUrl && /^https:\/\//.test(data.paymentUrl)) {
+        F.showStatus(statusBox(), "info", t("reg.redirecting"), "");
+        root.location.href = data.paymentUrl;
+        return true;
+      }
+      form.hidden = true;
+      var invoice = data.status === "pending_invoice";
+      F.showStatus(statusBox(), "ok", t(invoice ? "reg.ok_invoice_title" : "reg.ok_request_title"),
+        "<p>" + esc(t(invoice ? "reg.ok_invoice_text" : "reg.ok_request_text", { ref: data.reference || "—" })) + "</p>");
+      return true;
+    }).catch(function () {
+      F.showStatus(statusBox(), "err", t("form.error_title"), "<p>" + esc(t("availability.form_error")) + "</p>");
+      return false;
+    }).then(function (r) {
+      if (btn) { btn.disabled = false; btn.textContent = label; syncSubmit(); }
+      return r;
+    });
   }
 
   /* ---------- Envoi ---------- */
@@ -125,6 +199,25 @@
     });
     var company = billingType() === "company";
     var vat = company && el.vat.value.trim() && root.CfsVat ? root.CfsVat.format(el.vat.value) : "";
+    // Jamais plus de participants que de places restantes (la feuille revérifie de toute façon sous verrou)
+    if (s && s.live && s.seatsLeft != null && list.length > s.seatsLeft) {
+      hint.textContent = s.seatsLeft === 0 ? t("availability.error_full") : t("availability.error_not_enough", { remaining: s.seatsLeft });
+      hint.classList.add("is-error");
+      picks.scrollIntoView({ block: "nearest" });
+      return;
+    }
+    hint.classList.remove("is-error");
+    if (cfg.api) {
+      sendToWorker({
+        requestId: F.requestId(form), lang: I.lang(), training: trainingSel.value, sessionId: s ? s.id : null, payMode: payMode(),
+        trainingLanguage: el.trainingLanguage.value, participants: list, notes: el.notes.value.trim(),
+        customer: { firstName: el.firstName.value.trim(), lastName: el.lastName.value.trim(), email: el.email.value.trim(), phone: el.phone.value.trim() },
+        billing: { type: company ? "company" : "individual", company: company ? el.company.value.trim() : "", vat: vat.replace(/[\s.]/g, ""),
+          street: el.street.value.trim(), zip: el.zip.value.trim(), city: el.city.value.trim(), country: el.country.value.trim() || "BE" },
+        terms: el.terms.checked, website: el.website ? el.website.value : "", elapsedMs: Date.now() - startedAt
+      }, s);
+      return;
+    }
     var when = s ? S.dateText(s) + " · " + S.timeText(s) + " · " + S.place(s.location).full : t("reg.session_tbd");
     var subject = t("form.mail_subject_registration", { training: trainingLabel }) + (s ? " – " + S.shortDate(s.date) + " (" + S.place(s.location).name + ")" : "");
     var total = m.a ? t("reg.recap_excl") + " : " + I.cents(m.a.exclCents) + " · " + t("reg.recap_vat", { rate: root.CfsPricing.vatPercent(cfg.vatRate) }) + " : " +
@@ -166,15 +259,24 @@
 
   /* ---------- Mise en route ---------- */
   var note = $("[data-recap] .muted");
-  if (note && !cfg.onlinePayment) note.textContent = t("reg.recap_note_request");
+  if (note && !cfg.onlinePayment && !cfg.api) note.textContent = t("reg.recap_note_request");
   var f0 = q.get("formation");
   if (f0 && $$("option", trainingSel).some(function (o) { return o.value === f0; })) trainingSel.value = f0;
 
   trainingSel.addEventListener("change", renderPicks);
   picks.addEventListener("change", function () {
-    var s = selectedSession();
-    hint.textContent = s && !s.live ? t("reg.session_not_live") : "";
+    hint.classList.remove("is-error");
+    hint.textContent = sessionHint();
     updateRecap();
+  });
+  form.addEventListener("change", function (e) { if (e.target && (e.target.name === "payMode" || e.target.name === "vat")) syncSubmit(); });
+  form.addEventListener("input", function (e) { if (e.target && e.target.name === "vat") syncSubmit(); });
+  // Places relues pendant la saisie : liste des sessions et indication mises à jour, choix conservé
+  document.addEventListener("cfs:sessions", function (e) {
+    var keep = selectedSession();
+    sessions = e.detail.sessions;
+    wanted = keep ? keep.id : null;
+    renderPicks();
   });
   if (addBtn) addBtn.addEventListener("click", function () { addPerson(true); });
   people.addEventListener("click", function (e) {
@@ -185,7 +287,7 @@
     renumber();
     if (prev) $("input", prev).focus();
   });
-  $$('input[name="billingType"]', form).forEach(function (r) { r.addEventListener("change", syncBilling); });
+  $$('input[name="billingType"]', form).forEach(function (r) { r.addEventListener("change", function () { syncBilling(); syncSubmit(); }); });
   F.liveCheck(form);
   F.turnstile(form);
   form.addEventListener("submit", submit);

@@ -173,5 +173,10 @@
     if (month < now) month = now;
     bindCalendar();
     renderAll();
+    // Places relues (toutes les 45 s) : calendrier, liste et fiche ouverte mis à jour, mois et sélection conservés
+    document.addEventListener("cfs:sessions", function (e) {
+      all = e.detail.sessions;
+      renderAll();
+    });
   });
 })(typeof self !== "undefined" ? self : this);

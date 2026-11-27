@@ -106,6 +106,8 @@ PUBLIC = {
     "formEndpoint": cfg("FORM_ENDPOINT", "/api/contact" if API else ""),
     # Liste publique des sessions avec les places en direct (JSON { status: "ok", sessions: [...] }). Vide : fichier de secours.
     "sessionsUrl": cfg("SESSIONS_PUBLIC_URL", "/api/sessions" if API else ""),
+    # Réservations (Worker) : places vérifiées sous verrou par la feuille, montant calculé par la feuille
+    "registrationEndpoint": "/api/registrations" if API else "",
     "email": C.SITE["email"],
     # Destinataire des demandes préparées par e-mail (mode sans FORM_ENDPOINT). Par défaut : l'adresse du centre.
     "formEmail": cfg("FORM_EMAIL", C.SITE["email"]),
@@ -560,7 +562,8 @@ def page(lang, path, title, desc, body, *, alternates=None, active=None, jsonld=
         PAGES.append((lang, path, alternates, prio))
 
 
-_ROOT_URL = re.compile(r'(\s(?:href|src|action|poster)=")/(?!/)')
+# L'API du Worker (/api/…) est toujours servie à la racine du domaine : jamais préfixée par le chemin de base
+_ROOT_URL = re.compile(r'(\s(?:href|src|action|poster)=")/(?!/|api/)')
 
 
 _SRCSET = re.compile(r'(\ssrcset=")([^"]*)"')
@@ -1119,6 +1122,14 @@ def field(lang, fid, label, typ="text", required=False, auto="", extra="", error
     return f'<div class="field"><label for="{fid}">{E(label)}{req}</label>{ctl}{err}</div>'
 
 
+def nojs_form(lang):
+    """Avec le Worker, le formulaire fonctionne aussi sans JavaScript : envoi classique vers /api/contact, qui répond
+    par une page de confirmation dans la bonne langue. La langue voyage dans un champ caché ajouté après l'ouverture."""
+    if not PUBLIC["api"]:
+        return ""
+    return f' method="post" action="{E(PUBLIC["formEndpoint"])}"><input type="hidden" name="lang" value="{lang}"'
+
+
 def build_contact(lang):
     p = P(lang, "contact")
     crumbs = [home_crumb(lang), (t(lang, "nav.contact"), R.page("contact", lang))]
@@ -1128,7 +1139,7 @@ def build_contact(lang):
 <section class="section"><div class="wrap form-layout">
 <div>
 <div class="form-status" data-status tabindex="-1" role="status"></div>
-<form class="form" data-api-form="contact" novalidate>
+<form class="form" data-api-form="contact" novalidate{nojs_form(lang)}>
 {hp_field()}
 <fieldset><legend>{E(t(lang, "form.your_request"))}</legend>
 <div class="row-2">
@@ -1146,7 +1157,7 @@ def build_contact(lang):
 <div class="turnstile" data-turnstile></div>
 <div><button class="btn btn--signal" type="submit">{E(t(lang, "form.submit_contact"))}</button></div>
 </form>
-<noscript><p class="notice">{E(t(lang, "form.error_text"))}</p></noscript>
+{"" if PUBLIC["api"] else '<noscript><p class="notice">' + E(t(lang, "form.error_text")) + "</p></noscript>"}
 </div>
 {contact_side(lang)}
 </div></section>'''
@@ -1463,7 +1474,7 @@ def build_account_pages(lang):
 
 # ───────────────────────────── fichiers techniques
 DATA_V = {}
-JS_KEYS = ("lang.", "nav.", "common.", "cta.", "loc.", "sess.", "form.", "reg.", "pay.", "acc.", "chat.", "intro.")
+JS_KEYS = ("lang.", "nav.", "common.", "cta.", "loc.", "sess.", "availability.", "form.", "reg.", "pay.", "acc.", "chat.", "intro.")
 
 
 def site_data(lang):
@@ -1534,7 +1545,7 @@ def write_worker_data():
         json.dump(R.export(), fh, ensure_ascii=False, indent=1)
         fh.write("\n")
     # Textes des e-mails et des réponses du Worker (mêmes sources que le site : aucune traduction dupliquée)
-    worker_keys = ("email.", "form.", "reg.", "nav.", "common.", "pay.", "acc.", "sess.")
+    worker_keys = ("email.", "form.", "reg.", "nav.", "common.", "pay.", "acc.", "sess.", "availability.")
     with open(os.path.join(gen, "ui.json"), "w", encoding="utf-8") as fh:
         json.dump({lg: {k: v for k, v in UI[lg].items() if k.startswith(worker_keys)} for lg in LANGS}, fh, ensure_ascii=False, indent=1)
         fh.write("\n")

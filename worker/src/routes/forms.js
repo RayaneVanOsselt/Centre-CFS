@@ -15,6 +15,7 @@ import { validateContact, validateRegistration } from "../lib/validate.js";
 import { ipHash, mollie, mollieConfigured, mollieValue, rateLimit, sendEmail, supabase, supabaseConfigured, verifyTurnstile } from "../lib/services.js";
 import { t, teamRequestEmail } from "../lib/emails.js";
 import { userFromRequest } from "../lib/auth.js";
+import { purgeSessionsCache } from "./sessions.js";
 import ROUTES from "../generated/routes.json" with { type: "json" };
 
 const MIN_FILL_MS = 2500;
@@ -32,6 +33,17 @@ function siteUrl(env) {
   return String(env.SITE_URL || "https://centrecfs.be").replace(/\/$/, "");
 }
 
+/** Lien de retour : la page d'origine si elle est sur le site (Referer), sinon la page Contact de la langue. */
+function safeBack(referer, lang) {
+  try {
+    const u = new URL(referer);
+    if (u.pathname.startsWith("/") && !u.pathname.startsWith("/api/")) return u.pathname;
+  } catch {
+    /* Referer absent ou invalide */
+  }
+  return ROUTES.pages.contact[lang] || "/contact/";
+}
+
 /** Réponse JSON, ou page HTML si le formulaire a été envoyé sans JavaScript. */
 function answer(form, lang, payload, status, back) {
   if (!form) return json(payload, status);
@@ -40,7 +52,7 @@ function answer(form, lang, payload, status, back) {
     lang, status: ok ? 200 : status,
     title: ok ? t(lang, "form.sent_title") : t(lang, "form.error_title"),
     text: ok ? t(lang, "form.sent_text", { ref: payload.reference }) : payload.message,
-    back: back || ROUTES.pages.contact[lang] || "/contact/", backLabel: t(lang, "nav.home_crumb"),
+    back: safeBack(back, lang), backLabel: t(lang, "form.back"),
   });
 }
 
@@ -177,7 +189,8 @@ export async function postRegistration(request, env) {
   if (res.status === "unavailable") {
     const p = (res.problems || [])[0] || {};
     const code = p.reason === "full" ? "FULL" : p.reason === "insufficient" ? "NOT_ENOUGH" : p.reason === "closed" ? "CLOSED" : "NOT_FOUND";
-    return fail(code, message(lang, code, { remaining: p.remaining ?? 0 }), 409, { remaining: p.remaining ?? 0 });
+    await purgeSessionsCache(request);
+    return fail(code, message(lang, code, { remaining: p.remaining ?? 0 }), 409, { remaining: p.remaining ?? 0, sessionId: v.sessionId });
   }
   if (res.status === "invalid") return fail("INVALID", message(lang, "INVALID"), 400, { fields: res.fields || {} });
   if (res.status === "rate_limited") return fail("RATE_LIMITED", message(lang, "RATE_LIMITED"), 429);
@@ -186,7 +199,10 @@ export async function postRegistration(request, env) {
     const ref = await fallback(env, "registration", asRequest(v));
     return ref ? json({ ok: true, reference: ref, status: "request", fallback: true }) : fail("UNAVAILABLE", message(lang, "UNAVAILABLE"), 503);
   }
-  const out = { ok: true, reference: res.reference, status: online ? "pending_payment" : "pending_invoice", expiresAt: res.expiresAt || null, amounts: res.amounts || null };
+  const item = (res.items || [])[0] || {};
+  const out = { ok: true, reference: res.reference, status: online ? "pending_payment" : "pending_invoice", expiresAt: res.expiresAt || null,
+    amounts: res.amounts || null, sessionId: v.sessionId, remaining: item.remaining ?? null, capacity: item.capacity ?? null };
+  await purgeSessionsCache(request);
   if (!online || res.duplicate) return json(out);
   // Paiement en ligne : montant calculé par la feuille (jamais par le navigateur)
   const cents = res.amounts && res.amounts.inclCents;

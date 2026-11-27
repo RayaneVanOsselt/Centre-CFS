@@ -517,3 +517,28 @@ test("secret de signature sous le nom HMAC_SECRET (nom de la mission) accepté",
   const out = JSON.parse(G.ctx.doGet({ parameter: { action: "sessions", ts: String(ts), nonce, sig } }).text);
   assert.equal(out.status, "ok");
 });
+
+test("e-mails au client (mission 7.6) : réservation sur facture reçue, paiement confirmé une seule fois ; équipe en copie cachée", () => {
+  const G = sheetGas();
+  const inv = G.post(order(2, {
+    payMode: "invoice", lang: "nl",
+    billing: { type: "company", company: "Voorbeeld BV", vat: "BE0403170701", street: "Straat 1", zip: "2000", city: "Antwerpen" },
+  }));
+  assert.equal(inv.status, "ok");
+  const mails = () => G.sheet("File d'envoi").records();
+  const facture = mails().filter((m) => m["Type"] === "Réservation (facture)");
+  assert.equal(facture.length, 1);
+  assert.equal(facture[0]["Copie cachée"], "info@centrecfs.be");
+  assert.equal(facture[0]["Statut"], "Envoyé", "envoyé tout de suite, sans attendre la tâche automatique");
+  assert.match(facture[0]["Objet"], new RegExp(inv.reference));
+  assert.match(facture[0]["Objet"], /Plaatsen/, "dans la langue de la réservation");
+
+  const paid = G.post(order(1));
+  G.post({ action: "attachPayment", ref: paid.reference, mollieId: "tr_paid00001" });
+  assert.equal(G.post({ action: "confirmPayment", ref: paid.reference, mollieId: "tr_paid00001", amountCents: 30250 }).confirmed, true);
+  G.post({ action: "confirmPayment", ref: paid.reference, mollieId: "tr_paid00001", amountCents: 30250 });
+  const recu = mails().filter((m) => m["Type"] === "Paiement reçu");
+  assert.equal(recu.length, 1, "webhook rejoué : un seul e-mail");
+  assert.equal(recu[0]["Copie cachée"], "info@centrecfs.be");
+  assert.equal(mails().filter((m) => m["Type"] === "Réservation (facture)").length, 1, "aucun e-mail « facture » pour un paiement en ligne");
+});
