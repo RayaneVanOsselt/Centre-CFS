@@ -564,5 +564,7 @@
   "chat.loading": "Assistent laden…",
   "chat.you": "U",
   "chat.bot_name": "Assistent",
-  "chat.related": "Verwante vragen"
+  "chat.related": "Verwante vragen",
+  "common.price_incl": "of {price} incl. btw",
+  "common.intra_quote": "Groep in uw bedrijf: op aanvraag"
 }

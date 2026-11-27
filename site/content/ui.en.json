@@ -564,5 +564,7 @@
   "chat.loading": "Loading the assistant…",
   "chat.you": "You",
   "chat.bot_name": "Assistant",
-  "chat.related": "Related questions"
+  "chat.related": "Related questions",
+  "common.price_incl": "or {price} incl. VAT",
+  "common.intra_quote": "Group at your company: on request"
 }

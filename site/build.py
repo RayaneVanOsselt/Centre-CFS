@@ -850,7 +850,10 @@ def build_formation(slug, lang):
     dl = "".join(f'<div>{icon(i)}<dt>{E(k)}</dt><dd>{E(v)}</dd></div>' for i, k, v in facts)
     if f["prix"]:
         note = f'<small class="prix-note">{E(f["prix_note"])}</small>' if f.get("prix_note") else ""
-        prix = f'<div class="facts-price"><span class="facts-label">{E(t(lang, "common.price_per"))}</span><span class="prix">{E(money(f["prix"], lang))}</span> <small>{E(t(lang, "common.htva"))}</small>{note}</div>'
+        incl = round(round(f["prix"] * 100) * (1 + PUBLIC["vatRate"])) / 100  # même arrondi que la feuille et pricing.js
+        tvac = f'<small class="prix-note">{E(t(lang, "common.price_incl", price=money(incl, lang)))}</small>'
+        prix = (f'<div class="facts-price"><span class="facts-label">{E(t(lang, "common.price_per"))}</span><span class="prix">{E(money(f["prix"], lang))}</span> '
+                f'<small>{E(t(lang, "common.htva"))}</small>{tvac}{note}<small class="prix-note">{E(t(lang, "common.intra_quote"))}</small></div>')
     else:
         prix = f'<div class="facts-price"><span class="facts-label">{E(t(lang, "common.price"))}</span><span class="prix prix--quote">{E(t(lang, "common.quote"))}</span><small class="prix-note">{E(t(lang, "common.price_quote_long"))}</small></div>'
     book = f'<a class="btn btn--signal btn--bloc" href="{R.page("inscription", lang)}?formation={slug}">{E(t(lang, "cta.book"))}</a>'

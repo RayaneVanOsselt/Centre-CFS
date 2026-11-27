@@ -1,0 +1,23 @@
+{
+  "_comment": "PROPOSITION de tarifs HTVA par participant (inscription individuelle au centre), pour les formations SANS prix dans client/formations.csv. Les prix du catalogue du client (VCA Base, VCA Cadre, BA4, BA5) restent prioritaires et ne sont jamais remplacés. Alignés sur les tarifs publics belges relevés le 27/11/2026 (docs/TARIFS.md). À VALIDER par le Centre CFS avant la mise en production ; pour désactiver : CFS_PROPOSED_PRICES=0 à la construction. Formation en entreprise (intra) : toujours sur devis.",
+  "prix": {
+    "conseiller-prevention-base": 1290,
+    "recyclage-conseiller-prevention": 210,
+    "secourisme-base": 330,
+    "rappel-secourisme": 140,
+    "initiation-premiers-soins": 60,
+    "dea-defibrillateur": 75,
+    "equipier-premiere-intervention": 210,
+    "recyclage-equipier-premiere-intervention": 130,
+    "initiation-feu": 85,
+    "ari-appareil-respiratoire": 240,
+    "produits-dangereux": 160,
+    "amiante": 220,
+    "ergonomie": 130,
+    "harnais": 210,
+    "nacelle": 260,
+    "chariot-elevateur": 240,
+    "echafaudage": 240,
+    "pont-roulant": 220
+  }
+}

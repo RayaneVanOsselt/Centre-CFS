@@ -2,12 +2,14 @@
   "formations": {
     "amiante": {
       "capacite": null,
-      "prix": null,
+      "prix": 220.0,
+      "propose": true,
       "reservable": true
     },
     "ari-appareil-respiratoire": {
       "capacite": null,
-      "prix": null,
+      "prix": 240.0,
+      "propose": true,
       "reservable": true
     },
     "ba4": {
@@ -22,82 +24,98 @@
     },
     "chariot-elevateur": {
       "capacite": null,
-      "prix": null,
+      "prix": 240.0,
+      "propose": true,
       "reservable": true
     },
     "conseiller-prevention-base": {
       "capacite": null,
-      "prix": null,
+      "prix": 1290.0,
+      "propose": true,
       "reservable": true
     },
     "dea-defibrillateur": {
       "capacite": null,
-      "prix": null,
+      "prix": 75.0,
+      "propose": true,
       "reservable": true
     },
     "echafaudage": {
       "capacite": null,
-      "prix": null,
+      "prix": 240.0,
+      "propose": true,
       "reservable": true
     },
     "equipier-premiere-intervention": {
       "capacite": null,
-      "prix": null,
+      "prix": 210.0,
+      "propose": true,
       "reservable": true
     },
     "ergonomie": {
       "capacite": null,
-      "prix": null,
+      "prix": 130.0,
+      "propose": true,
       "reservable": true
     },
     "harnais": {
       "capacite": null,
-      "prix": null,
+      "prix": 210.0,
+      "propose": true,
       "reservable": true
     },
     "initiation-feu": {
       "capacite": null,
-      "prix": null,
+      "prix": 85.0,
+      "propose": true,
       "reservable": true
     },
     "initiation-premiers-soins": {
       "capacite": 15,
-      "prix": null,
+      "prix": 60.0,
+      "propose": true,
       "reservable": true
     },
     "nacelle": {
       "capacite": null,
-      "prix": null,
+      "prix": 260.0,
+      "propose": true,
       "reservable": true
     },
     "pont-roulant": {
       "capacite": null,
-      "prix": null,
+      "prix": 220.0,
+      "propose": true,
       "reservable": true
     },
     "produits-dangereux": {
       "capacite": null,
-      "prix": null,
+      "prix": 160.0,
+      "propose": true,
       "reservable": true
     },
     "rappel-secourisme": {
       "capacite": null,
-      "prix": null,
+      "prix": 140.0,
+      "propose": true,
       "reservable": true
     },
     "recyclage-conseiller-prevention": {
       "capacite": null,
-      "prix": null,
+      "prix": 210.0,
+      "propose": true,
       "reservable": true
     },
     "recyclage-equipier-premiere-intervention": {
       "capacite": null,
-      "prix": null,
+      "prix": 130.0,
+      "propose": true,
       "reservable": true
     },
     "secourisme-base": {
       "capacite": null,
-      "prix": null,
+      "prix": 330.0,
+      "propose": true,
       "reservable": true
     },
     "vca-base": {

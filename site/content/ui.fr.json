@@ -564,5 +564,7 @@
   "chat.loading": "Chargement de l'assistant…",
   "chat.you": "Vous",
   "chat.bot_name": "Assistant",
-  "chat.related": "Questions liées"
+  "chat.related": "Questions liées",
+  "common.price_incl": "soit {price} TVAC",
+  "common.intra_quote": "Groupe en entreprise : sur devis"
 }

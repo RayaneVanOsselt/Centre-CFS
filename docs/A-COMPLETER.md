@@ -74,3 +74,7 @@ dans `docs/RAPPORT-IMPORT.md` (régénéré à chaque construction).
 - [ ] Générer la version PDF de `docs/GUIDE-FEUILLE.md` pour l'équipe (*Imprimer › Enregistrer en PDF* depuis GitHub)
 - [ ] Taux de TVA (`VAT_RATE`, 21 % par défaut) et mentions des e-mails de réservation : **à valider par le comptable**
 - [ ] Durée de conservation des demandes (`REQUEST_RETENTION_MONTHS`) à choisir et à reporter dans la confidentialité
+
+## 8. Tarifs
+
+- [ ] **Valider la grille de `docs/TARIFS.md`** (18 prix proposés + durées manquantes) avant la mise en production

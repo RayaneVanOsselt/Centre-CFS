@@ -5,15 +5,15 @@ base de connaissances du 2026-11-27. Sessions de test : celles de `tests/chatbot
 
 | Critère (mission 8.10) | Seuil | Résultat |
 |---|---|---|
-| Règles de véracité (aucun prix, aucune date, aucun agrément inventés) | 100 % | **27 / 27** |
-| Toutes les vérifications de texte (attendus présents, interdits absents) | — | 65 / 65 |
-| Intention et adresse attendues | 90 % | **65 / 65** (100 %) |
-| Réponse dans la langue du visiteur | — | 65 / 65 |
+| Règles de véracité (aucun prix, aucune date, aucun agrément inventés) | 100 % | **30 / 30** |
+| Toutes les vérifications de texte (attendus présents, interdits absents) | — | 68 / 68 |
+| Intention et adresse attendues | 90 % | **68 / 68** (100 %) |
+| Réponse dans la langue du visiteur | — | 68 / 68 |
 
 | Langue | Question | Intention attendue | Obtenue | Confiance | Véracité | Intention + adresse | Réponse (début) |
 |---|---|---|---|---|---|---|---|
 | fr | Combien coûte le VCA Base ? | price | price | high | ✅ | ✅ | VCA Base : 250 € HTVA par personne (syllabus et examen compris). |
-| fr | Prix de la formation amiante ? | price | price | high | ✅ | ✅ | Le tarif de la formation « Amiante » est établi sur devis, selon le nombre de participants et le lieu. |
+| fr | Prix de la formation amiante ? | price | price | high | ✅ | ✅ | Amiante : 220 € HTVA par personne. |
 | fr | Prochaine session VCA Cadre à Engis ? | next_session | next_session | high | ✅ | ✅ | Prochaine session de VCA Cadre : jeudi 14 janvier 2027 → 15 janvier à Engis, 8 h 30 – 17 h. 8 places disponibles sur 12. |
 | fr | Combien de temps le VCA est-il valable ? | validity | validity | high | — | ✅ | Validité du certificat VCA Base : 10 ans. |
 | fr | Que faut-il apporter ? | equipment | equipment | high | — | ✅ | Pour les formations pratiques (équipements de travail) : Se munir de chaussures de sécurité S3, de vêtements de travail et de sa carte d'identité. |
@@ -38,7 +38,7 @@ base de connaissances du 2026-11-27. Sessions de test : celles de `tests/chatbot
 | fr | Faut-il des prérequis pour le BA5 ? | prerequisites | prerequisites | high | — | ✅ | Prérequis pour BA5 – personnel qualifié : Connaissances de base des installations électriques et des lois de l'électrotechnique. Pour qui ? Les perso… |
 | nl | Wat kost de BA4-opleiding? | price | price | high | ✅ | ✅ | BA4 – gewaarschuwd persoon: € 275 excl. btw per persoon (cursus inbegrepen). |
 | nl | Hoeveel kost VCA Basis? | price | price | high | ✅ | ✅ | VCA Basis (B-VCA): € 250 excl. btw per persoon (cursus en examen inbegrepen). |
-| nl | Wat is de prijs van de asbestopleiding? | price | price | high | ✅ | ✅ | De prijs van de opleiding « Asbest » is op aanvraag, volgens het aantal deelnemers en de locatie. |
+| nl | Wat is de prijs van de asbestopleiding? | price | price | high | ✅ | ✅ | Asbest: € 220 excl. btw per persoon. |
 | nl | Wanneer is de volgende sessie VOL-VCA? | next_session | next_session | high | ✅ | ✅ | Volgende sessie van VOL-VCA: donderdag 14 januari 2027 → 15 januari in Engis, 08:30 – 17:00. 8 van 12 plaatsen beschikbaar. |
 | nl | Hoe lang is het VCA-certificaat geldig? | validity | validity | high | — | ✅ | Geldigheid van het certificaat VCA Basis (B-VCA): 10 jaar. |
 | nl | Wat moet ik meebrengen voor de heftruckopleiding? | equipment | equipment | high | — | ✅ | Voor de praktijkopleidingen (arbeidsmiddelen): Veiligheidsschoenen S3, werkkledij en identiteitskaart meebrengen. |
@@ -56,9 +56,9 @@ base de connaissances du 2026-11-27. Sessions de test : celles de `tests/chatbot
 | nl | Wanneer is de volgende sessie rolbrug? | next_session | next_session | high | ✅ | ✅ | Er is momenteel geen sessie van Rolbrug gepubliceerd. We kunnen u verwittigen zodra er een datum is, of de opleiding in uw bedrijf organiseren. |
 | nl | Hoe verloopt het examen VCA Basis? | exam | exam | high | — | ✅ | Examen van VCA Basis (B-VCA): Op computer, duur 1 uur. Slaagdrempel: 64,5 %. |
 | nl | Hoe kan ik betalen? | payment | payment | high | — | ✅ | Na uw aanvraag bevestigt het team de plaats en stuurt het de factuur (betaling per overschrijving). Bedrijven met een btw-nummer kunnen op factuur res… |
-| en | How much is the VCA Basic course? | price | price | high | ✅ | ✅ | VCA Basic (B-VCA): € 250 excl. VAT per person (course book and exam included). |
-| en | What is the price of BA4? | price | price | high | ✅ | ✅ | BA4 – instructed person: € 275 excl. VAT per person (course book included). |
-| en | How much does asbestos training cost? | price | price | high | ✅ | ✅ | The price of the “Asbestos” course is on request, depending on the number of participants and the location. |
+| en | How much is the VCA Basic course? | price | price | high | ✅ | ✅ | VCA Basic (B-VCA): €250 excl. VAT per person (course book and exam included). |
+| en | What is the price of BA4? | price | price | high | ✅ | ✅ | BA4 – instructed person: €275 excl. VAT per person (course book included). |
+| en | How much does asbestos training cost? | price | price | high | ✅ | ✅ | Asbestos: €220 excl. VAT per person. |
 | en | Do you organise training at our site? | intra | intra | high | — | ✅ | Yes. All our courses can be run at your company, on dates that suit you and adapted to your risks. The price is on request. |
 | en | Do you train in Romanian? | languages | languages | high | — | ✅ | Yes: Romanian is one of our 11 training languages, on request. Tell us what you need (course, number of participants, location). |
 | en | When is the next VCA Basic session? | next_session | next_session | high | ✅ | ✅ | The Sunday, 10 January 2027 session is full. Next VCA Basic (B-VCA) session: Thursday, 21 January 2027 in Engis, 08:30 – 17:00. Last places: 2 of 10. |
@@ -77,3 +77,6 @@ base de connaissances du 2026-11-27. Sessions de test : celles de `tests/chatbot
 | en | How do I book a course? | booking | booking | high | — | ✅ | To book: choose a session in the schedule, then fill in the registration form (participants, billing). No suitable date? Ask for a date or for trainin… |
 | en | When is the next overhead crane session? | next_session | next_session | high | ✅ | ✅ | No Overhead crane session is published at the moment. We can let you know as soon as a date is set, or run the course at your company. |
 | en | Where are your courses held? | place | place | high | — | ✅ | Our courses take place in Engis (Rue de la Paix 12, 4480 Engis), in Charleroi (CEME, Rue des Français 147, 6020 Charleroi) and at your company. |
+| fr | Quel est le prix d'une formation dans notre entreprise ? | intra | intra | high | ✅ | ✅ | Oui. Toutes nos formations peuvent être organisées dans votre entreprise, aux dates qui vous conviennent et adaptées à vos risques. Le tarif est établ… |
+| fr | Combien coûte la formation conseiller en prévention niveau base ? | price | price | high | ✅ | ✅ | Conseiller en prévention – niveau base : 1 290 € HTVA par personne. |
+| en | How much is the prevention advisor basic course? | price | price | high | ✅ | ✅ | Prevention advisor – basic level: €1,290 excl. VAT per person. |

@@ -6,6 +6,7 @@ name = "centre-cfs"
 main = "worker/src/index.js"
 compatibility_date = "2026-10-01"
 workers_dev = true
+keep_vars = true          # variables du tableau de bord gardées à chaque déploiement (voir plus bas)
 
 # Site statique : servi directement par Cloudflare (requêtes non facturées comme requêtes Worker).
 # Seules les adresses /api/* exécutent le code du Worker. _headers et _redirects (générés par site/build.py) s'appliquent.
@@ -23,25 +24,23 @@ crons = ["*/10 * * * *"]
 [observability]
 enabled = true
 
-# Réglages PUBLICS (aucun secret). Les valeurs vides sont à compléter dans le tableau de bord ou ici, après la mise en service.
+# (Réglage de premier niveau placé plus haut : keep_vars.)
+# Les variables ajoutées dans le tableau de bord (Workers › centre-cfs › Settings › Variables and Secrets) sont gardées
+# à chaque déploiement : EMAILJS_PUBLIC_KEY, EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_CLIENT, EMAILJS_TEMPLATE_EQUIPE,
+# SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, TURNSTILE_SITE_KEY (et tous les secrets). Ne les écrivez pas ici.
+# Réglages PUBLICS par défaut (aucun secret). SITE_URL est remplacé au déploiement (--var, workflow deploy-cloudflare.yml).
 [vars]
 SITE_URL = "https://centrecfs.be"
-SUPABASE_URL = ""
-SUPABASE_PUBLISHABLE_KEY = ""
-EMAILJS_PUBLIC_KEY = ""
-EMAILJS_SERVICE_ID = ""
-EMAILJS_TEMPLATE_CLIENT = ""
-EMAILJS_TEMPLATE_EQUIPE = ""
 EMAILJS_MONTHLY_QUOTA = "200"
 TEAM_NOTIFICATION_EMAIL = "info@centrecfs.be"
-TURNSTILE_SITE_KEY = ""
 ONLINE_PAYMENT_ENABLED = "0"
-CHATBOT_PROVIDER = "local"
-CHATBOT_MODEL = ""
+CHATBOT_PROVIDER = "workers-ai"
+# Modèle cité par Cloudflare comme disponible sur le plan GRATUIT (changelog du 28/07/2026) ; ≈ 40 neurons par réponse
+CHATBOT_MODEL = "@cf/google/gemma-4-26b-a4b-it"
 CHATBOT_DAILY_LIMIT = "200"
 VAT_RATE = "0.21"
 
-# Couche IA facultative du chatbot avec Workers AI (docs/README-ASSISTANT.md) : décommenter seulement si
-# CHATBOT_PROVIDER = "workers-ai", avec un modèle disponible sur le plan gratuit.
-# [ai]
-# binding = "AI"
+# Couche IA du chatbot (Workers AI, allocation gratuite de 10 000 neurons par jour ; docs/README-ASSISTANT.md).
+# Pour la couper : CHATBOT_PROVIDER = "local" ci-dessus (le chatbot répond alors avec son cœur local seul).
+[ai]
+binding = "AI"

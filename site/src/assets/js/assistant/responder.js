@@ -40,6 +40,8 @@ export function answer(kb, question, ctx = {}) {
   let intent = intents[0] || null;
   // Une salle à louer avec « prix » : c'est la location de salle
   if (intent === "price" && intents.includes("rooms")) intent = "rooms";
+  // Prix d'une formation dans l'entreprise du client : toujours sur devis
+  if (intent === "price" && intents.includes("intra") && !named) intent = "intra";
   // « Vous formez en roumain ? » : langue citée sans autre intention
   if (!intent && findLanguage(kb, q) >= 0) intent = "languages";
   // Une formation citée seule (« VCA Base ? ») : présentation de la formation
@@ -48,7 +50,7 @@ export function answer(kb, question, ctx = {}) {
   out.meta.formation = f ? f.slug : null;
   const card = (type, title, url) => out.cards.push({ type, title, url });
   const src = (e) => { if (e && !out.sources.some((s) => s.url === e.url)) out.sources.push({ title: e.full || e.title, url: e.url }); };
-  const money = (n) => new Intl.NumberFormat(LOCALE[lang], { style: "currency", currency: "EUR", maximumFractionDigits: n % 1 ? 2 : 0 }).format(n);
+  const money = (n) => new Intl.NumberFormat(lang === "en" ? "en-GB" : LOCALE[lang], { style: "currency", currency: "EUR", maximumFractionDigits: n % 1 ? 2 : 0 }).format(n);
   const htva = t("common.htva");
   const msg = [];
   const confidence = (c) => { out.meta.confidence = c; };

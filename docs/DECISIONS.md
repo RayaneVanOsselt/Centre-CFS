@@ -146,3 +146,16 @@ Une entrée par décision : contexte, options, choix, conséquences. Statut : **
   les 3 langues) ; IA seulement en reformulation, revalidée par le Worker avec sa propre copie de la base.
 - **Conséquences** : zéro coût et zéro invention par défaut ; 65 questions évaluées (véracité 100 %). Le modèle Workers AI
   reste à choisir à l'activation (liste gratuite à revérifier).
+
+## D-015 : grille de prix proposée et IA du chatbot activée (validée par Rayane, 27/11/2026)
+
+- **Contexte** : Rayane demande des prix « professionnels et raisonnables » pour toutes les formations et une IA active
+  pour répondre aux questions. Seules 4 formations avaient un prix dans le catalogue du client.
+- **Choix** : (1) `site/content/tarifs.json` : 18 prix PROPOSÉS, alignés sur les tarifs publics belges (`docs/TARIFS.md`),
+  appliqués seulement là où le client n'a pas de prix, affichés HTVA et TVAC, groupes en entreprise toujours sur devis ;
+  désactivables (`CFS_PROPOSED_PRICES=0`). (2) IA : Workers AI, modèle `@cf/google/gemma-4-26b-a4b-it` cité par
+  Cloudflare comme disponible sur le plan gratuit, appelé seulement quand le cœur local n'est pas sûr de lui, réponse
+  revalidée (liens, montants) et repli local en cas d'erreur ou de quota atteint.
+- **Conséquences** : les prix proposés sont à valider par le Centre CFS avant la production (`A-COMPLETER.md`). L'IA ne
+  fonctionne qu'avec le Worker déployé (pas sur GitHub Pages, où le cœur local répond seul). Publication sans Node :
+  workflow `deploy-cloudflare.yml` (bouton « Run workflow »).

@@ -38,7 +38,7 @@ export function evaluate(kbs, suite) {
   }
   const rows = suite.questions.map((c) => {
     const a = answer(kbs[c.lang], c.q, { lang: c.lang, slug: c.slug || null, sessions: suite.sessions, live: true, kbFor: (l) => kbs[l] });
-    const text = a.message.toLowerCase();
+    const text = a.message.toLowerCase().replace(/[\u00a0\u202f]/g, " ");   // espaces insécables des montants
     const urls = [...a.cards.map((x) => x.url), ...a.sources.map((x) => x.url)];
     const problems = [];
     for (const m of c.must || []) if (!text.includes(m.toLowerCase())) problems.push(`absent : « ${m} »`);

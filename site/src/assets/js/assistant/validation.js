@@ -21,15 +21,20 @@ export function allowedUrl(kb, url) {
   return whitelist(kb).has(url.split("?")[0].split("#")[0]);
 }
 
-/** Montants (« 250 € », « € 275 », « €302.50 ») cités dans un texte, en nombres. */
+/** Montants (« 250 € », « 1 290 € », « € 275 », « €1,290 », « 302,50 € ») cités dans un texte, en nombres. */
 export function amounts(text) {
   const out = [];
-  for (const m of String(text).matchAll(/(\d[\d  .]*(?:,\d+)?)\s?€|€\s?(\d[\d  .]*(?:[.,]\d+)?)/g)) {
-    const raw = (m[1] || m[2]).replace(/[  ]/g, "");
-    const n = Number(raw.includes(",") ? raw.replace(/\./g, "").replace(",", ".") : raw);
-    if (Number.isFinite(n)) out.push(n);
-  }
-  return out;
+  const re = /(\d{1,3}(?:[\s\u00a0\u202f.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)\s?€|€\s?(\d{1,3}(?:[\s\u00a0\u202f.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)/g;
+  for (const m of String(text).matchAll(re)) out.push(toNumber(m[1] || m[2]));
+  return out.filter((n) => Number.isFinite(n));
+}
+
+/** « 1 290 » → 1290 ; « 1,290 » → 1290 ; « 302,50 » → 302.5 ; « 302.50 » → 302.5 */
+export function toNumber(raw) {
+  const s = String(raw).replace(/[\s\u00a0\u202f]/g, "");
+  const m = /^(\d{1,3}(?:[.,]\d{3})*|\d+)(?:[.,](\d{1,2}))?$/.exec(s);
+  if (!m) return NaN;
+  return Number(m[1].replace(/[.,]/g, "") + (m[2] ? "." + m[2] : ""));
 }
 
 /**
