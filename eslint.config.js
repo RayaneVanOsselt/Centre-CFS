@@ -33,6 +33,12 @@ export default [
     rules,
   },
   {
+    // Service worker du banc d'essai : ses objets globaux sont ceux d'un worker de navigateur
+    files: ["tests/browser/api-sw.js"],
+    languageOptions: { ecmaVersion: "latest", sourceType: "script", globals: { ...shared, self: "readonly", MessageChannel: "readonly" } },
+    rules,
+  },
+  {
     files: ["tests/**/*.js", "scripts/**/*.js", "eslint.config.js"],
     ignores: ["tests/browser/**"],
     languageOptions: { ecmaVersion: "latest", sourceType: "module", globals: { ...shared, process: "readonly", Buffer: "readonly" } },
