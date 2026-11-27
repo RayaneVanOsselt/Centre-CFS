@@ -33,6 +33,7 @@ from lib.icons import icon, sign  # noqa: E402
 sys.path.insert(0, os.path.join(HERE, "tools"))
 import import_client  # noqa: E402
 import sync_gas_i18n  # noqa: E402
+import build_kb  # noqa: E402
 
 OUT = os.path.join(ROOT, "dist")
 SRC = os.path.join(HERE, "src")
@@ -490,7 +491,7 @@ def page(lang, path, title, desc, body, *, alternates=None, active=None, jsonld=
     js_before = f'<script src="{asset("/assets/js/intro-gate.js")}"></script>' if home else ""
     js = [f"/assets/js/site-data.{lang}.js", "/assets/js/i18n.js", "/assets/js/main.js"] + list(scripts)
     if PUBLIC["chatbot"]:
-        js.append("/assets/js/chatbot.js")
+        js.append("/assets/js/assistant/launcher.js")
     for js_path in js:  # aucune page ne doit appeler un script absent (lien cassé + erreur dans la console)
         if not js_path.startswith("/assets/js/site-data") and not os.path.exists(os.path.join(SRC, js_path.lstrip("/"))):
             raise SystemExit(f"Script introuvable : site/src{js_path} (page {path}). Ajoutez le fichier ou désactivez l'option qui l'utilise.")
@@ -1474,6 +1475,7 @@ def build_account_pages(lang):
 
 # ───────────────────────────── fichiers techniques
 DATA_V = {}
+KB_V = {}  # empreintes des bases de connaissances de l'assistant (cache)
 JS_KEYS = ("lang.", "nav.", "common.", "cta.", "loc.", "sess.", "availability.", "form.", "reg.", "pay.", "acc.", "chat.", "intro.")
 
 
@@ -1499,6 +1501,14 @@ def site_data(lang):
     cfg_pub = {k: v for k, v in PUBLIC.items() if k not in ("supabaseUrl", "supabaseKey") or PUBLIC["accounts"]}
     cfg_pub["dev"] = DEV
     cfg_pub["hero3d"] = BASE + asset("/assets/js/hero-3d.js")  # module chargé à la demande par main.js (accueil)
+    if PUBLIC["chatbot"]:
+        # Assistant : moteur, base de connaissances et panneau chargés à la demande par launcher.js
+        cfg_pub["assistant"] = {
+            "module": BASE + asset("/assets/js/assistant/assistant.js"), "css": BASE + asset("/assets/css/assistant.css"),
+            "kb": BASE + f"/assets/data/kb.{lang}.json?v={KB_V.get(lang, '')}",
+            "sessions": [BASE + asset("/assets/js/sessions-data.js"), BASE + asset("/assets/js/sessions.js")],
+            "ai": cfg("CHATBOT_PROVIDER", "local") != "local",
+        }
     js = ("/* Généré par site/build.py — ne pas modifier. Aucune donnée secrète. */\n"
           f"self.CFS_CONFIG={json.dumps(cfg_pub, ensure_ascii=False)};\n"
           f"self.CFS_I18N={json.dumps(strings, ensure_ascii=False, separators=(',', ':'))};\n"
@@ -1679,6 +1689,8 @@ def main():
     if src != new:
         with open(sync_gas_i18n.GS, "w", encoding="utf-8") as fh:
             fh.write(new)
+    KB_V.update(build_kb.build({"T": T, "C": C, "R": R, "PRICE": PRICE, "BOOKABLE": BOOKABLE, "BASE": BASE, "UI": UI, "PUBLIC": PUBLIC, "P": P,
+                                "LANGS": LANGS, "OUT": OUT, "UPDATED": C.CONTENT_UPDATED, "EPI": {lg: T[lg].EPI_PREREQ for lg in LANGS}}))
     write_site_data()
     for lang in LANGS:
         build_home(lang)

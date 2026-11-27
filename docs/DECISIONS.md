@@ -139,3 +139,10 @@ Une entrée par décision : contexte, options, choix, conséquences. Statut : **
   jamais un paramètre de l'adresse ; relecture toutes les 3 s puis 15 s.
 - **Conséquences** : le paiement en ligne et la réservation ne demandent pas de compte (D-011). Banc d'essai du
   parcours de paiement : `tests/browser/e2e.html?pay=1` (fausse page Mollie locale, webhook simulé).
+
+## D-014 : assistant local d'abord, IA facultative (validée, 27/11/2026)
+
+- **Choix** : cœur local déterministe (base générée depuis tout le site, recherche pondérée, gabarits par intention dans
+  les 3 langues) ; IA seulement en reformulation, revalidée par le Worker avec sa propre copie de la base.
+- **Conséquences** : zéro coût et zéro invention par défaut ; 65 questions évaluées (véracité 100 %). Le modèle Workers AI
+  reste à choisir à l'activation (liste gratuite à revérifier).

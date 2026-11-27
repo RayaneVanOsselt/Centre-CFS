@@ -1,0 +1,44 @@
+{
+  "_comment": "Synonymes de l'assistant (FR / NL / EN), en minuscules et sans accents. À relire par Rayane. Les titres des formations dans les 3 langues sont ajoutés automatiquement par site/tools/build_kb.py.",
+  "formations": {
+    "vca-base": ["vca base", "vca de base", "vca 1", "vca1", "b-vca", "bvca", "vca basis", "vca basic", "securite de base vca", "vca"],
+    "vca-ligne-hierarchique": ["vca cadre", "vca cadres", "vol-vca", "volvca", "vol vca", "vca leidinggevende", "vca leidinggevenden", "vca supervisor", "vca supervisors", "vca ligne hierarchique", "vca 2"],
+    "conseiller-prevention-base": ["conseiller en prevention", "conseiller prevention", "preventieadviseur", "prevention advisor", "niveau base", "basiskennis", "cp base"],
+    "recyclage-conseiller-prevention": ["recyclage conseiller", "bijscholing preventieadviseur", "prevention advisor refresher"],
+    "secourisme-base": ["secourisme", "secouriste", "secouriste d'entreprise", "premiers secours", "ehbo", "hulpverlener", "first aid", "first aider", "first-aid", "secourisme de base"],
+    "rappel-secourisme": ["rappel secourisme", "recyclage secourisme", "recyclage secouriste", "bijscholing hulpverlener", "ehbo bijscholing", "first aid refresher", "first-aid refresher"],
+    "initiation-premiers-soins": ["premiers soins", "initiation premiers soins", "initiatie eerste hulp", "first aid awareness", "first-aid awareness"],
+    "dea-defibrillateur": ["dea", "defibrillateur", "aed", "defibrillator", "defibrillatie"],
+    "equipier-premiere-intervention": ["epi", "equipier de premiere intervention", "equipier premiere intervention", "eerste interventieploeg", "first response fire team", "fire team", "intervention incendie"],
+    "recyclage-equipier-premiere-intervention": ["recyclage epi", "recyclage equipier", "bijscholing eerste interventieploeg", "fire team refresher"],
+    "initiation-feu": ["extincteur", "extincteurs", "initiation feu", "manipulation extincteurs", "brandblusser", "blustoestellen", "brandbestrijding", "fire extinguisher", "extinguisher", "extinguishers"],
+    "ari-appareil-respiratoire": ["ari", "appareil respiratoire", "appareil respiratoire isolant", "ademhalingstoestel", "scba", "breathing apparatus"],
+    "ba4": ["ba4", "ba 4", "personnel averti", "gewaarschuwd", "gewaarschuwd persoon", "instructed person", "habilitation electrique ba4"],
+    "ba5": ["ba5", "ba 5", "personnel qualifie", "vakbekwaam", "vakbekwaam persoon", "skilled person", "habilitation electrique ba5"],
+    "produits-dangereux": ["produits dangereux", "substances dangereuses", "gevaarlijke stoffen", "gevaarlijke producten", "hazardous substances", "dangerous goods", "chemicals"],
+    "amiante": ["amiante", "asbest", "asbestos"],
+    "ergonomie": ["ergonomie", "ergonomics", "manutention", "port de charges", "tillen"],
+    "harnais": ["harnais", "travail en hauteur", "harnas", "werken op hoogte", "harness", "working at height", "work at height"],
+    "nacelle": ["nacelle", "nacelle elevatrice", "pemp", "hoogwerker", "aerial work platform", "mewp", "cherry picker"],
+    "chariot-elevateur": ["chariot elevateur", "chariot", "clark", "heftruck", "vorkheftruck", "forklift", "fork lift"],
+    "echafaudage": ["echafaudage", "echafaudages", "steiger", "steigerbouw", "stelling", "scaffolding", "scaffold"],
+    "pont-roulant": ["pont roulant", "pont-roulant", "rolbrug", "overhead crane", "bridge crane"]
+  },
+  "languages": {
+    "francais": 0, "french": 0, "frans": 0,
+    "neerlandais": 1, "dutch": 1, "nederlands": 1, "flamand": 1, "vlaams": 1,
+    "allemand": 2, "german": 2, "duits": 2,
+    "anglais": 3, "english": 3, "engels": 3,
+    "italien": 4, "italian": 4, "italiaans": 4,
+    "espagnol": 5, "spanish": 5, "spaans": 5,
+    "portugais": 6, "portuguese": 6, "portugees": 6,
+    "roumain": 7, "romanian": 7, "roemeens": 7,
+    "russe": 8, "russian": 8, "russisch": 8,
+    "turc": 9, "turkish": 9, "turks": 9,
+    "bulgare": 10, "bulgarian": 10, "bulgaars": 10
+  },
+  "places": {
+    "engis": ["engis", "liege", "luik", "huy", "seraing", "flemalle"],
+    "charleroi": ["charleroi", "ceme", "hainaut", "henegouwen"]
+  }
+}
