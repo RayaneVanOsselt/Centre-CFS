@@ -381,7 +381,7 @@ def org_jsonld(lang):
         "address": {"@type": "PostalAddress", "streetAddress": eng["street"], "postalCode": eng["zip"], "addressLocality": eng["city"], "addressRegion": "Liège", "addressCountry": "BE"},
         "location": [{"@type": "Place", "name": T[lang].LIEUX[k]["full"], "address": {"@type": "PostalAddress", "streetAddress": C.LIEUX[k]["street"], "postalCode": C.LIEUX[k]["zip"], "addressLocality": C.LIEUX[k]["city"], "addressCountry": "BE"}} for k in ("engis", "charleroi")],
         "areaServed": [{"@type": "AdministrativeArea", "name": "Wallonie"}, {"@type": "Country", "name": "Belgique"}],
-        "knowsLanguage": C.LANG_CODES, "sameAs": [C.SITE["linkedin"]], "foundingDate": str(C.SITE["since"]),
+        "knowsLanguage": C.LANG_CODES, "sameAs": [C.SITE["linkedin"]], **({"foundingDate": str(C.SITE["since"])} if C.SITE["since"] else {}),
         "memberOf": {"@type": "Organization", "name": "AKT – Chambres de commerce et d'industrie de Liège-Verviers-Namur"},
     }
 
@@ -1466,16 +1466,21 @@ def write_static():
         shutil.copy(os.path.join(SRC, "static", fn), os.path.join(OUT, fn))
     with open(os.path.join(OUT, "favicon.svg"), "w") as fh:
         fh.write(L.favicon())
-    # Sitemap multilingue
-    urls = []
+    # Sitemaps : un fichier par langue (avec les équivalents hreflang), réunis par un index sitemap.xml
+    by_lang = {lg: [] for lg in LANGS}
     for lang, path, alts, prio in PAGES:
         links = "".join(f'<xhtml:link rel="alternate" hreflang="{R.HREFLANG[lg]}" href="{CANON + p}"/>' for lg, p in alts.items())
         if "fr" in alts:
             links += f'<xhtml:link rel="alternate" hreflang="x-default" href="{CANON + alts["fr"]}"/>'
-        urls.append(f"<url><loc>{CANON + path}</loc><lastmod>{BUILD_DATE.isoformat()}</lastmod><priority>{prio}</priority>{links}</url>")
+        by_lang[lang].append(f"<url><loc>{CANON + path}</loc><lastmod>{BUILD_DATE.isoformat()}</lastmod><priority>{prio}</priority>{links}</url>")
+    for lang, urls in by_lang.items():
+        with open(os.path.join(OUT, f"sitemap-{lang}.xml"), "w", encoding="utf-8") as fh:
+            fh.write('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">'
+                     + "".join(urls) + "</urlset>\n")
     with open(os.path.join(OUT, "sitemap.xml"), "w", encoding="utf-8") as fh:
-        fh.write('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">'
-                 + "".join(urls) + "</urlset>\n")
+        fh.write('<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+                 + "".join(f"<sitemap><loc>{CANON}/sitemap-{lg}.xml</loc><lastmod>{BUILD_DATE.isoformat()}</lastmod></sitemap>" for lg in LANGS)
+                 + "</sitemapindex>\n")
     private = ["inscription"] + (["compte"] if PUBLIC["accounts"] else []) + (["paiement"] if PUBLIC["onlinePayment"] else [])
     disallow = "".join(f"Disallow: {BASE}{R.page(k, lg)}\n" for k in private for lg in LANGS)
     with open(os.path.join(OUT, "robots.txt"), "w") as fh:

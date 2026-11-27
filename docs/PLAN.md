@@ -5,8 +5,8 @@ suivante »). Les cases indiquent ce qui existe déjà dans le dépôt au 27/11/
 
 | Phase | Contenu | Déjà fait | Reste à faire | Ce qu'il faut de Rayane avant de commencer |
 |---|---|---|---|---|
-| **0** Analyse | `CLAUDE.md`, analyse, plan, à compléter, import client | Restructuration `site/`, `import_client.py` | — (cette livraison) | Valider ce plan et les décisions D-001 à D-005 |
-| **1** Contenus et trilingue | Toute la section 4, routes, langues, `hreflang`, sitemaps, `check_i18n.py`, traductions à relire | Trois langues, routes, `hreflang`, sitemap, `check_i18n.py` | Reprendre les détails de l'ancien site (`ANCIEN-SITE-ECARTS.md`), pages Financement, Langues, Accessibilité, Cookies ; sitemap index par langue ; `TRADUCTIONS-A-RELIRE.md` | Réponses aux incohérences (2012 ou 2013, noms de l'équipe) |
+| **0** Analyse ✅ | `CLAUDE.md`, analyse, plan, à compléter, import client | Restructuration `site/`, `import_client.py` | — (cette livraison) | Valider ce plan et les décisions D-001 à D-005 |
+| **1** Contenus et trilingue ✅ | Toute la section 4, routes, langues, `hreflang`, sitemaps, `check_i18n.py`, traductions à relire | Trois langues, routes, `hreflang`, sitemap, `check_i18n.py` | Reprendre les détails de l'ancien site (`ANCIEN-SITE-ECARTS.md`), pages Financement, Langues, Accessibilité, Cookies ; sitemap index par langue ; `TRADUCTIONS-A-RELIRE.md` | Réponses aux incohérences (2012 ou 2013, noms de l'équipe) |
 | **2** Direction artistique et pages riches | `DIRECTION-ARTISTIQUE.md` validé **avant** le code, composants, gabarits, images, registre | Charte, pictogrammes, tickets « permis » | Tout le reste, dont le traitement des images (Pillow à installer) | Valider la direction artistique ; photos du client s'il y en a |
 | **3** Héros 3D | Three.js copié, affiche statique, replis, budgets | — | Tout | — |
 | **4** Infrastructure | Worker + assets statiques, en-têtes, redirections, cron ; Supabase ; `SETUP.md`, `QUOTAS.md` ; CI | Workflow de publication GitHub Pages | Tout ; ranger les bibliothèques dans `vendor/<nom>/<version>/` | **Décision D-001** (hébergement) ; comptes Cloudflare et Supabase ; Node 22 installé |

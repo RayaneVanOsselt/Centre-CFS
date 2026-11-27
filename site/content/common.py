@@ -15,7 +15,7 @@ SITE = {
     "bce": None,  # À compléter (client/infos-entreprise.md) — obligatoire dans les mentions légales
     "closure_until": "2027-01-04",  # bandeau « fermeture de fin d'année » affiché jusqu'à cette date
     "closure_from": "2026-12-01",
-    "since": 2012,
+    "since": None,  # année de création : 2012 ou 2013 selon les sources (docs/A-COMPLETER.md) ; jamais publiée tant qu'elle n'est pas confirmée
 }
 
 LIEUX = {
@@ -81,5 +81,5 @@ ARTICLES = [
     {"key": "vca-base-ou-vca-cadre", "date": "2026-11-26", "related": ["vca-base", "vca-ligne-hierarchique"]},
     {"key": "ba4-ou-ba5-habilitation-electrique", "date": "2026-11-26", "related": ["ba4", "ba5"]},
     {"key": "secouriste-entreprise-obligations", "date": "2026-11-26", "related": ["secourisme-base", "rappel-secourisme", "dea-defibrillateur"]},
-    {"key": "centre-cfs-former-aujourdhui-pour-prevenir-demain", "date": None, "related": []},
+    {"key": "centre-cfs-former-aujourdhui-pour-prevenir-demain", "date": "2026-10-26", "related": []},
 ]

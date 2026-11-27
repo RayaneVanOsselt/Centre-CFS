@@ -42,9 +42,11 @@ dans `docs/RAPPORT-IMPORT.md` (régénéré à chaque construction).
 - [ ] `client/logos-partenaires/` : uniquement avec autorisation écrite
 - [ ] `client/temoignages.csv` : uniquement avec accord écrit (sinon la section n'existe pas)
 - [ ] `client/traductions-relues/` : relecture des textes néerlandais et anglais par un natif
-- [ ] Texte complet de l'article AKT validé pour republication (voir section 1)
-- [ ] Références réglementaires du travail en hauteur à revérifier (directives de 1989 remplacées depuis) avant de les
-      reprendre sur les fiches harnais et nacelle
+- [ ] Article AKT : repris en phase 1 sans les noms de personnes ni l'historique (année de création contradictoire) ;
+      les ajouter si le Centre CFS confirme les noms et l'année
+- [ ] Références légales du harnais et de la nacelle reprises de l'ancien site en phase 1 (A.R. du 31 août 2005 et du
+      13 juin 2005) : à confirmer par le Centre CFS. Les directives européennes de 1989 citées par l'ancien site n'ont pas
+      été reprises (la directive 89/686/CEE a été remplacée par le règlement (UE) 2016/425)
 
 ## 5. Actions de Rayane (outils et comptes)
 
