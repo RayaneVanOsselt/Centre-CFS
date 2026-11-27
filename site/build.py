@@ -656,7 +656,7 @@ SESSION_SCRIPTS = ["/assets/js/sessions-data.js", "/assets/js/sessions.js", "/as
 def build_home(lang):
     p = P(lang, "home")
     tx = T[lang]
-    board = "".join(f'<li><a href="{R.domain(d["slug"], lang)}">{dsign(d["slug"])}<span>{E(tx.DOMAINES[d["slug"]]["name"])}</span></a></li>' for d in C.DOMAINES)
+    board = "".join(f'<li><a href="{R.domain(d["slug"], lang)}" data-domain="{d["slug"]}">{dsign(d["slug"])}<span>{E(tx.DOMAINES[d["slug"]]["name"])}</span></a></li>' for d in C.DOMAINES)
     partners = "".join(f"<li>{E(x)}</li>" for x in tx.PARTENAIRES)
     domains = []
     for i, d in enumerate(C.DOMAINES):
@@ -1447,6 +1447,7 @@ def site_data(lang):
     strings = {k: v for k, v in UI[lang].items() if k.startswith(JS_KEYS)}
     cfg_pub = {k: v for k, v in PUBLIC.items() if k not in ("supabaseUrl", "supabaseKey") or PUBLIC["accounts"]}
     cfg_pub["dev"] = DEV
+    cfg_pub["hero3d"] = BASE + asset("/assets/js/hero-3d.js")  # module chargé à la demande par main.js (accueil)
     js = ("/* Généré par site/build.py — ne pas modifier. Aucune donnée secrète. */\n"
           f"self.CFS_CONFIG={json.dumps(cfg_pub, ensure_ascii=False)};\n"
           f"self.CFS_I18N={json.dumps(strings, ensure_ascii=False, separators=(',', ':'))};\n"

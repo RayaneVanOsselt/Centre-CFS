@@ -178,6 +178,22 @@
     }, { passive: true });
   }
 
+  /* ---------- Héros 3D de l'accueil : chargé après la page, seulement si l'appareil s'y prête ---------- */
+  const board3d = $("[data-board]");
+  const cfg = window.CFS_CONFIG || {};
+  const can3D = () => {
+    if (reduceMotion || !window.WebGL2RenderingContext) return false;
+    const c = navigator.connection;
+    if (c && (c.saveData || /2g/.test(c.effectiveType || ""))) return false;
+    if (navigator.deviceMemory && navigator.deviceMemory < 4) return false;
+    return !(navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4);
+  };
+  if (board3d && cfg.hero3d && can3D()) {
+    const go = () => import(cfg.hero3d).then((m) => m.default(board3d)).catch(() => { /* le panneau HTML reste affiché */ });
+    const idle = (fn) => (window.requestIdleCallback ? window.requestIdleCallback(fn, { timeout: 2500 }) : setTimeout(fn, 1200));
+    if (document.readyState === "complete") idle(go); else window.addEventListener("load", () => idle(go), { once: true });
+  }
+
   /* ---------- Année du pied de page ---------- */
   $$("[data-year]").forEach((el) => { el.textContent = String(new Date().getFullYear()); });
 })();

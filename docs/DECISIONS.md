@@ -65,3 +65,22 @@ Une entrée par décision : contexte, options, choix, conséquences. Statut : **
   `rjsmin` ne gère pas toute la syntaxe moderne (gabarits, chaînage optionnel) et le JavaScript initial reste sous le
   budget de 60 Ko compressés.
 - **Conséquences** : en local sans `rcssmin`, le site est identique, simplement moins compact.
+
+## D-008 : héros 3D en WebGL2 sur mesure, dans le panneau de chantier (validée, 27/11/2026)
+
+- **Contexte** : la mission (9.2) prévoit Three.js copié dans le projet, avec un budget de 200 Ko et une affiche statique
+  rendue par Playwright ; elle autorise un petit moteur WebGL2 sur mesure si le budget n'est pas tenu. Sur ce poste, Node
+  et Playwright ne sont pas disponibles, et le téléchargement de Three.js n'a pas été autorisé.
+- **Options** : (1) Three.js complet (≈ 170 Ko compressés + scène) ; (2) moteur WebGL2 de ≈ 300 lignes, sans dépendance.
+- **Choix** : (2), `site/src/assets/js/hero-3d.js` (≈ 15 Ko non compressés). La scène se joue dans le panneau de chantier
+  existant : la nuit tombe sur le panneau, les 8 pictogrammes deviennent des plaques extrudées (face émaillée texturée à
+  partir des mêmes SVG que le site, tranche et dos en aluminium) et le pointeur devient une lampe frontale dont le faisceau
+  allume le film rétro-réfléchissant. Survol ou focus clavier d'un lien : la plaque se tourne vers le visiteur. Quand le héros
+  quitte l'écran, « le jour se lève » : le panneau redevient clair et le rendu s'arrête.
+- **Repli et performance** : chargé par `import()` après l'événement `load` et un moment d'inactivité, seulement sans
+  « réduire les animations », sans économie de données, avec WebGL2, 4 Go de mémoire et 4 cœurs au moins. Le panneau HTML
+  (liens, pictogrammes SVG) est l'affiche : rien ne change pour le temps d'affichage (LCP) ni pour l'accessibilité. Rendu à
+  la demande, densité de pixels plafonnée (1,5 ou 2), pause hors écran et onglet masqué, contexte libéré au `pagehide`.
+- **Écart avec la mission** : pas d'affiche AVIF rendue par Playwright (inutile : le panneau HTML l'est déjà) ; transition
+  jour/nuit déclenchée par la visibilité du héros plutôt que par `animation-timeline`. L'animation d'introduction existante
+  (une fois par session) est conservée.

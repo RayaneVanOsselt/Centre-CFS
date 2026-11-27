@@ -712,3 +712,15 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--b
 .updated { margin: var(--s-3) 0 0; font-size: var(--t-s); color: var(--acier); }
 .on-dark .updated, .f-hero .updated { color: inherit; opacity: .85; }
 .facts-title { margin: 0 0 var(--s-3); font-size: 1.25rem; }
+
+/* ---------- Héros 3D : la nuit tombe sur le panneau de chantier (hero-3d.js, WebGL2) ---------- */
+.board { transition: background-color .6s var(--ease), color .6s var(--ease), box-shadow .6s var(--ease); }
+.board-3d { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; border-radius: inherit; transition: opacity .6s var(--ease); }
+.board-3d.is-off { opacity: 0; }
+.board.is-night { transform: none; background: var(--encre); color: var(--blanc); box-shadow: 0 40px 80px -40px rgba(0, 0, 0, .8), inset 0 0 0 1px rgba(255, 255, 255, .1); }
+.board.is-night .board-title { color: var(--sur-sombre-2); }
+.board.is-night .board-grid a { color: var(--sur-sombre); }
+.board.is-night .board-grid a:hover, .board.is-night .board-grid a:focus-visible { background: rgba(255, 255, 255, .07); color: var(--blanc); }
+.board.is-night .board-grid .sign { visibility: hidden; }
+.board.is-night .board-next { border-top-color: rgba(255, 255, 255, .2); }
+.board.is-night .board-next-label, .board.is-night .board-next-empty { color: var(--sur-sombre-2); }
