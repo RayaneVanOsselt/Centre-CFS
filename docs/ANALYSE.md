@@ -165,3 +165,18 @@ Dépôt consulté : `README-RESERVATIONS`, `README-FORMULAIRES`, `README-ASSISTA
 Python 3.12 est présent ; **Node.js, npm, Playwright et la Supabase CLI ne le sont pas**. Les tests Node existants ne
 peuvent donc tourner qu'en CI tant que Node 22 n'est pas installé (`A-COMPLETER.md`). Les tests Python tournent avec
 `python3 -m pytest site/tests -q` (pytest à installer : `python3 -m pip install pytest`).
+
+## 10. Échec « Syntaxe JavaScript » en CI (27/11/2026)
+
+- **Constat** : l'étape `npm run check:js` (Node 22, `node --check`) échouait sur GitHub alors que le contrôle local
+  (JavaScriptCore) passait.
+- **Cause** : `site/src/assets/js/package.json` (présent depuis le premier commit) déclarait `"type": "commonjs"`. Node lisait
+  donc `assistant/*.js`, `search/search.js` et `hero-3d.js` comme des scripts CommonJS et refusait leurs `import`/`export` ;
+  les tests Node qui importent `assistant/responder.js` et `validation.js` (Worker, évaluation du chatbot) étaient touchés
+  de la même façon. Le contrôle local, lui, repliait sur la syntaxe « script » sans lire les `package.json`.
+- **Dépendances vérifiées** : aucun code Node ne charge ces scripts par `require` ; `site/build.py` ne publie pas ce fichier
+  (copie avec `ignore_patterns("package.json")`) ; les navigateurs l'ignorent ; tous les scripts du dossier sont valides
+  comme modules ES stricts.
+- **Correction** : fichier supprimé (le `package.json` racine, `"type": "module"`, s'applique) ; `scripts/check-js-syntax.sh`
+  lit désormais chaque fichier comme Node (package.json le plus proche, sans repli). Contre-épreuve : avec l'ancien fichier,
+  le contrôle local signale les 7 mêmes fichiers.

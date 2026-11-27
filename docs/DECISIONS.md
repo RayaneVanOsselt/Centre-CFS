@@ -178,3 +178,15 @@ Une entrée par décision : contexte, options, choix, conséquences. Statut : **
   jour. Véracité inchangée : prix, dates, places et liens restent ceux de la base et de la feuille, revalidés par le
   Worker et par le navigateur. Le fil de la conversation (6 échanges, textes bornés) est envoyé à Anthropic pour la
   réponse : la mention « ne partagez pas de données personnelles » reste affichée sous le champ (docs/RGPD.md).
+
+## D-017 : IA du chatbot sur Workers AI gratuit, sans Claude (décision de Rayane, 27/11/2026)
+
+- **Contexte** : Rayane ne veut pas utiliser Claude (API payante) pour l'assistant ; il veut une IA « normale », sans
+  clé ni frais.
+- **Choix** : `CHATBOT_PROVIDER` = `workers-ai` partout (wrangler.toml, `npm run dev`, `npm run build:worker`,
+  publication Cloudflare), modèle `@cf/google/gemma-4-26b-a4b-it` du plan gratuit. Le fonctionnement de D-016 est
+  conservé (l'IA rédige chaque réponse à partir de la réponse vérifiée, du fil et des sessions ; double revalidation ;
+  questions sensibles en réponse fixe). Le code Claude reste dans `chat-provider.js` (testé, inactif) au cas où.
+- **Conséquences** : 0 € ; environ 250 réponses de l'IA par jour, plafond 200, puis réponse locale. Seul sous-traitant
+  de l'IA : Cloudflare (déjà hébergeur). Rien à configurer à la publication.
+
