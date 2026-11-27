@@ -6,12 +6,12 @@
  * (adresses de la liste blanche, montants présents dans la base, longueur). Au moindre doute : null, et le navigateur
  * garde la réponse locale.
  *
- * Fournisseurs (CHATBOT_PROVIDER), avec relais automatique :
- *  - « claude » (par défaut) : API Messages d'Anthropic en HTTP direct (le Worker n'a aucune dépendance, D-009),
- *    modèle CHATBOT_MODEL (claude-opus-5-5 par défaut), sortie JSON contrainte par un schéma, repli serveur en cas de
- *    refus (fallbacks), invite système mise en cache. Secret ANTHROPIC_API_KEY. Sans clé, ou en cas d'échec : Workers AI ;
- *  - « workers-ai » : binding Workers AI (env.AI), modèle WORKERS_AI_MODEL disponible sur le plan GRATUIT ;
- *  - « local » : aucune IA (le cœur local répond seul).
+ * Fournisseurs (CHATBOT_PROVIDER) :
+ *  - « workers-ai » (réglage du site, D-017) : binding Workers AI (env.AI), modèle WORKERS_AI_MODEL disponible sur le
+ *    plan GRATUIT, aucune clé ;
+ *  - « local » : aucune IA (le cœur local répond seul) ;
+ *  - « claude » : NON UTILISÉ par le Centre (payant). Conservé et testé pour un éventuel besoin futur : API Messages
+ *    d'Anthropic en HTTP direct (secret ANTHROPIC_API_KEY), puis relais Workers AI en cas d'échec.
  */
 
 import { amounts } from "../../../site/src/assets/js/assistant/validation.js";

@@ -78,8 +78,7 @@ Guide détaillé avec captures : `docs/GUIDE-FEUILLE.md`. En bref :
 Avec Node (facultatif) : `npm ci`, `npx wrangler login`, `npm run dev` (essai local sur http://localhost:8787),
 `npx wrangler secret put NOM` pour les secrets, `npm run deploy` pour publier.
 
-L'IA du chatbot est active dès la publication : sans clé, elle passe par Workers AI (gratuit) ; avec la clé Claude,
-elle passe par Claude (plus professionnel, payant à l'usage) : voir l'étape 7. Le site statique est servi directement par Cloudflare ; seul `/api/*` exécute le Worker.
+L'IA du chatbot (Workers AI, gratuite) est active dès la publication, sans clé : voir l'étape 7. Le site statique est servi directement par Cloudflare ; seul `/api/*` exécute le Worker.
 
 ## 3. EmailJS (tous les e-mails, côté serveur uniquement)
 
@@ -135,19 +134,14 @@ Les remboursements se font dans le tableau de bord Mollie ; la feuille signale �
 
 ## 7. IA du chatbot
 
-Fonctionnement comme l'assistant Wisy Safety : l'IA rédige chaque réponse à partir des informations vérifiées du site
-(D-016). `CHATBOT_PROVIDER` = `claude` dans `wrangler.toml` (déjà réglé).
+L'IA rédige chaque réponse à partir des informations vérifiées du site (D-016), avec **Workers AI, gratuit** (D-017) :
+`CHATBOT_PROVIDER` = `workers-ai` dans `wrangler.toml` (déjà réglé). **Rien à créer, aucune clé, aucun abonnement** :
+le binding `AI` est déclaré dans `wrangler.toml` et fonctionne dès la publication sur Cloudflare.
 
-- **Sans rien faire** : relais Workers AI, gratuit (10 000 « neurons » par jour, environ 250 réponses de l'IA).
-- **Pour Claude (recommandé, payant à l'usage, environ 1 à 3 centimes de dollar par réponse)** :
-  1. console.anthropic.com › créer un compte de l'organisation › *Billing* : ajouter un moyen de paiement et une
-     **limite de dépenses mensuelle** (par exemple 20 $) ;
-  2. *API keys* › *Create key* (nom : `centre-cfs-worker`) ; copier la clé (elle ne s'affiche qu'une fois) ;
-  3. Cloudflare › Workers › `centre-cfs` › Settings › Variables and Secrets › *Add* › type **Secret**, nom
-     `ANTHROPIC_API_KEY`, coller la clé › Deploy. Jamais dans GitHub, dans la feuille, dans un fichier ou dans le chat.
-  4. Vérifier : poser une question sur le site ; la réponse porte la mention « Rédigé par l'IA… ».
-- Modèle : `CHATBOT_MODEL` (`claude-opus-5-5` par défaut ; `claude-sonnet-5-5` ou `claude-haiku-5-5` pour réduire le
-  coût). Plafond quotidien : `CHATBOT_DAILY_LIMIT` (200). Couper l'IA : `CHATBOT_PROVIDER` = `local`.
+- Allocation gratuite : 10 000 « neurons » par jour (environ 250 réponses de l'IA) ; plafond du site
+  `CHATBOT_DAILY_LIMIT` (200). Au-delà, le cœur local répond seul, sans frais.
+- Vérifier : poser une question sur le site publié ; la réponse porte la mention « Rédigé par l'IA… ».
+- Couper l'IA : `CHATBOT_PROVIDER` = `local`.
 
 Détails et coûts : `docs/README-ASSISTANT.md`.
 

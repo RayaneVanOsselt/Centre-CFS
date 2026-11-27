@@ -11,7 +11,7 @@
     "build": "python3 site/build.py",
     "build:dev": "python3 site/build.py --dev",
     "import:client": "python3 site/tools/import_client.py",
-    "dev": "SITE_URL=http://localhost:8787 BASE_PATH= WORKER_API=1 CHATBOT_ENABLED=1 CHATBOT_PROVIDER=claude python3 site/build.py --dev && wrangler dev --port 8787",
+    "dev": "SITE_URL=http://localhost:8787 BASE_PATH= WORKER_API=1 CHATBOT_ENABLED=1 CHATBOT_PROVIDER=workers-ai python3 site/build.py --dev && wrangler dev --port 8787",
     "test": "node --test \"tests/**/*.test.js\"",
     "test:py": "python3 -m pytest site/tests -q",
     "test:e2e": "playwright test",
@@ -20,7 +20,7 @@
     "lint": "eslint worker tests scripts",
     "eval:chatbot": "node scripts/eval-chatbot.js",
     "deploy": "npm run build:worker && wrangler deploy",
-    "build:worker": "SITE_URL=https://centrecfs.be BASE_PATH= WORKER_API=1 CHATBOT_ENABLED=1 CHATBOT_PROVIDER=claude python3 site/build.py",
+    "build:worker": "SITE_URL=https://centrecfs.be BASE_PATH= WORKER_API=1 CHATBOT_ENABLED=1 CHATBOT_PROVIDER=workers-ai python3 site/build.py",
     "check:js": "node scripts/check-syntax.js"
   },
   "devDependencies": {

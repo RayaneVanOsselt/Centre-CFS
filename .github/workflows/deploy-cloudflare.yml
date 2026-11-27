@@ -37,7 +37,7 @@ jobs:
           BASE_PATH: ""
           WORKER_API: "1"
           CHATBOT_ENABLED: "1"
-          CHATBOT_PROVIDER: claude
+          CHATBOT_PROVIDER: workers-ai
           TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
           ONLINE_PAYMENT_ENABLED: ${{ vars.ONLINE_PAYMENT_ENABLED || '0' }}
           ACCOUNTS_ENABLED: ${{ vars.ACCOUNTS_ENABLED || '0' }}
