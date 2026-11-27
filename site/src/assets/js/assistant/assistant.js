@@ -397,7 +397,8 @@ function transmitForm() {
     const convo = els.attach.checked ? "\n\n---\n" + history.map((h) => `> ${h.q}\n${h.a}`).join("\n\n") : "";
     try {
       const r = await fetch(cfg.formEndpoint || "/api/contact", {
-        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin",
+        // Feuille Google en direct : text/plain sans cookie (requête « simple ») ; Worker : JSON
+        method: "POST", headers: { "Content-Type": cfg.direct ? "text/plain;charset=utf-8" : "application/json" }, credentials: cfg.direct ? "omit" : "same-origin",
         body: JSON.stringify({ form: "assistant", requestId: (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()), lang, name: els.name.value.trim(),
           email: els.email.value.trim(), phone: els.phone.value.trim(), message: (last + convo).slice(0, 4800), consent: true, page: location.pathname,
           website: "", elapsedMs: Date.now() - startedAt + 3000 }),

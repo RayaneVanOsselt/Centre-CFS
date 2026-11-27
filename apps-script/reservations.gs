@@ -7,27 +7,30 @@
  * Guide pas à pas : docs/SETUP.md et docs/README-RESERVATIONS.md. Guide de l'équipe : docs/GUIDE-FEUILLE.md.
  *
  * Repris du système Wisy Safety (même logique, mêmes garanties), adapté au Centre CFS :
- *   - le navigateur ne parle JAMAIS à ce script : seul le Worker Cloudflare l'appelle, et chaque appel est signé
- *     (HMAC-SHA256, horodatage de moins de 5 minutes, signature à usage unique) ;
+ *   - deux façons d'appeler ce script : (1) le Worker Cloudflare, chaque appel signé (HMAC-SHA256, horodatage de moins
+ *     de 5 minutes, signature à usage unique) ; (2) « tout chez Google » (DECISIONS.md D-018) : le site appelle
+ *     directement TROIS routes publiques (liste des sessions, demandes, réservation sur facture), revalidées ici
+ *     (champs, robots, délai minimum, limites, doublons). Tout le reste exige la signature ;
  *   - places recalculées à chaque demande à partir de l'onglet « Réservations » (jamais saisies à la main) ;
  *   - réservation vérifiée et écrite SOUS VERROU, tout ou rien, sans doublon (requestId), clôture 48 h avant ;
  *   - paiement en ligne (Mollie, via le Worker) : « En attente de paiement » 30 minutes, puis Confirmée ou Expirée ;
  *   - paiement sur facture (entreprises) : « En attente (facture) » 72 heures, confirmée par l'équipe (menu) ;
- *   - e-mails envoyés par EmailJS (API REST + clé privée), avec une file d'envoi, des réessais, un compteur mensuel
- *     partagé avec le Worker et des priorités (P1 essentiels, P2 demandes, P3 rappels).
+ *   - e-mails envoyés par le Gmail du compte Google propriétaire de la feuille (MailApp, environ 100 par jour), ou par
+ *     EmailJS si ses propriétés sont renseignées ; file d'envoi, réessais, compteur mensuel et priorités
+ *     (P1 essentiels, P2 demandes, P3 rappels).
  *
  * Règle d'or pour l'équipe : NE JAMAIS SUPPRIMER UNE LIGNE. Toujours passer par le menu « Centre CFS ».
- * Les secrets (HMAC, clé privée EmailJS) sont rangés dans les PROPRIÉTÉS DU SCRIPT, jamais dans une cellule.
+ * Les secrets (HMAC, clé privée EmailJS éventuelle) sont rangés dans les PROPRIÉTÉS DU SCRIPT, jamais dans une cellule.
  * =========================================================================
  */
 
-var VERSION = "2.1.0";
+var VERSION = "3.0.0";
 
 var CONFIG = {
   FILE_NAME: "Réservations – Centre CFS",
   TIMEZONE: "Europe/Brussels",
   LOCALE: "fr_BE",
-  TEAM_EMAIL: "info@centrecfs.be",          // destinataire fixe du modèle EmailJS « équipe »
+  TEAM_EMAIL: "info@centrecfs.be",          // boîte de l'équipe (propriété du script TEAM_EMAIL pour changer)
   SITE_URL: "https://centrecfs.be",
   PHONE: "0475 34 02 89",
   PAY_ONLINE_MINUTES: 30,                   // « En attente de paiement » bloque les places 30 minutes
@@ -45,6 +48,7 @@ var CONFIG = {
   CACHE_SECONDS: 20,
   SIGNATURE_MAX_AGE_SECONDS: 300,
   EMAIL_QUOTA: 200,                         // plan gratuit EmailJS (propriété EMAILJS_MONTHLY_QUOTA pour changer)
+  GMAIL_MONTHLY_QUOTA: 2500,                // Gmail : environ 100 destinataires par jour (propriété EMAIL_MONTHLY_QUOTA)
   EMAIL_WARN_RATIO: 0.8,                    // à 80 % : rappels (P3) suspendus + alerte unique à l'équipe
   EMAIL_SPACING_MS: 1100,                   // EmailJS : 1 requête par seconde
   MAX_SEND_TRIES: 5,
@@ -181,7 +185,19 @@ var I18N = {
     "email.session_cancelled_next": "Notre équipe vous contacte pour vous proposer une autre date.",
     "email.session_cancelled_subject": "Session annulée ({ref}) – Centre CFS",
     "email.session_cancelled_title": "Session annulée",
-    "email.tagline": "Formations sécurité au travail"
+    "email.tagline": "Formations sécurité au travail",
+    "form.back": "Retour au site",
+    "form.error_text": "Vérifiez votre connexion et réessayez, ou contactez-nous directement : 0475 34 02 89 ou info@centrecfs.be.",
+    "form.error_title": "La demande n'est pas partie",
+    "form.fix_errors": "Corrigez les champs signalés.",
+    "form.rate_limited": "Trop de demandes en peu de temps. Réessayez dans quelques minutes.",
+    "form.sent_text": "Merci. Nous avons bien reçu votre demande (référence {ref}) et nous revenons vers vous rapidement.",
+    "form.sent_title": "Demande envoyée",
+    "reg.busy": "Beaucoup de réservations en même temps : réessayez dans quelques secondes. Rien n'a été réservé.",
+    "reg.closed": "Les inscriptions en ligne sont closes pour cette session. Appelez-nous au 0475 34 02 89.",
+    "reg.full": "Cette session vient d'être complète. Choisissez une autre date.",
+    "reg.session_unavailable": "La session demandée n'est plus disponible. Choisissez une autre date, ou demandez une date à convenir.",
+    "reg.unavailable": "Il ne reste plus assez de places : {remaining} place(s) restante(s). Réduisez le nombre de participants ou choisissez une autre date."
   },
   "nl": {
     "email.account_path": "/nl/account/",
@@ -263,7 +279,19 @@ var I18N = {
     "email.session_cancelled_next": "Ons team neemt contact met u op om een andere datum voor te stellen.",
     "email.session_cancelled_subject": "Sessie geannuleerd ({ref}) – Centre CFS",
     "email.session_cancelled_title": "Sessie geannuleerd",
-    "email.tagline": "Opleidingen veiligheid op het werk"
+    "email.tagline": "Opleidingen veiligheid op het werk",
+    "form.back": "Terug naar de website",
+    "form.error_text": "Controleer uw verbinding en probeer opnieuw, of neem rechtstreeks contact op: 0475 34 02 89 of info@centrecfs.be.",
+    "form.error_title": "De aanvraag is niet verzonden",
+    "form.fix_errors": "Corrigeer de aangeduide velden.",
+    "form.rate_limited": "Te veel aanvragen in korte tijd. Probeer het binnen enkele minuten opnieuw.",
+    "form.sent_text": "Bedankt. We hebben uw aanvraag goed ontvangen (referentie {ref}) en nemen snel contact met u op.",
+    "form.sent_title": "Aanvraag verzonden",
+    "reg.busy": "Veel reserveringen tegelijk: probeer het binnen enkele seconden opnieuw. Er is niets gereserveerd.",
+    "reg.closed": "Online inschrijven is afgesloten voor deze sessie. Bel ons op 0475 34 02 89.",
+    "reg.full": "Deze sessie is net volzet geraakt. Kies een andere datum.",
+    "reg.session_unavailable": "De gevraagde sessie is niet meer beschikbaar. Kies een andere datum, of vraag een datum op afspraak.",
+    "reg.unavailable": "Er zijn niet genoeg plaatsen meer: nog {remaining} plaats(en). Verminder het aantal deelnemers of kies een andere datum."
   },
   "en": {
     "email.account_path": "/en/account/",
@@ -345,7 +373,19 @@ var I18N = {
     "email.session_cancelled_next": "Our team will contact you to suggest another date.",
     "email.session_cancelled_subject": "Session cancelled ({ref}) – Centre CFS",
     "email.session_cancelled_title": "Session cancelled",
-    "email.tagline": "Workplace safety training"
+    "email.tagline": "Workplace safety training",
+    "form.back": "Back to the website",
+    "form.error_text": "Check your connection and try again, or contact us directly: +32 475 34 02 89 or info@centrecfs.be.",
+    "form.error_title": "Your request was not sent",
+    "form.fix_errors": "Please correct the highlighted fields.",
+    "form.rate_limited": "Too many requests in a short time. Please try again in a few minutes.",
+    "form.sent_text": "Thank you. We have received your request (reference {ref}) and will get back to you shortly.",
+    "form.sent_title": "Request sent",
+    "reg.busy": "Many bookings at once: please try again in a few seconds. Nothing has been booked.",
+    "reg.closed": "Online registration is closed for this session. Call us on +32 475 34 02 89.",
+    "reg.full": "This session has just filled up. Choose another date.",
+    "reg.session_unavailable": "The session you asked for is no longer available. Choose another date, or ask for a date to be agreed.",
+    "reg.unavailable": "There are not enough places left: {remaining} place(s) remaining. Reduce the number of participants or choose another date."
   }
 };
 var TRAINING_NAMES = {
@@ -958,7 +998,7 @@ function health_() {
   }
   return {
     status: "ok", version: VERSION, timezone: CONFIG.TIMEZONE, tabs: tabs, automaticTask: hasTrigger,
-    signing: !!hmacSecret_(), emailjs: !!emailConfig_(), email: quotaState_(), outbox: outbox,
+    signing: !!hmacSecret_(), emailjs: !!emailConfig_(), mail: mailMode_(), email: quotaState_(), outbox: outbox,
     sessions: {
       rows: sessions.list.length,
       valid: sessions.list.filter(function (s) { return s.valid; }).length,
@@ -975,24 +1015,35 @@ function clearCache_() { try { CacheService.getScriptCache().remove(CACHE_KEY); 
 /** GET ?action=sessions|health&ts=…&nonce=…&sig=… — signature = HMAC(secret, ts + "." + nonce + ".GET:" + action). */
 function doGet(e) {
   try {
-    var p = (e && e.parameter) || {}, action = String(p.action || "sessions");
+    var p = (e && e.parameter) || {};
+    // Accès direct du site (D-018) : liste publique, sans signature, sans aucune donnée personnelle
+    if (String(p.route || "") === "sessions") return json_(publicSessionsList_(p));
+    var action = String(p.action || "sessions");
     var bad = verifySigned_(p.ts, p.nonce, p.sig, "GET:" + action);
     if (bad) return json_({ status: "unauthorized", reason: bad });
     if (action === "health") return json_(health_());
     if (action !== "sessions") return json_({ status: "error" });
-    var cache = CacheService.getScriptCache(), hit = cache.get(CACHE_KEY);
-    if (hit) return ContentService.createTextOutput(hit).setMimeType(ContentService.MimeType.JSON);
-    var text = JSON.stringify(publicSessions_());
-    if (text.length < 90000) { try { cache.put(CACHE_KEY, text, CONFIG.CACHE_SECONDS); } catch (err) { /* non gardé */ } }
-    return ContentService.createTextOutput(text).setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(sessionsText_()).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return json_({ status: "error" });
   }
 }
 
+/** Liste publique (JSON), gardée CONFIG.CACHE_SECONDS secondes : la feuille n'est relue qu'une fois par période. */
+function sessionsText_() {
+  var cache = CacheService.getScriptCache(), hit = cache.get(CACHE_KEY);
+  if (hit) return hit;
+  var text = JSON.stringify(publicSessions_());
+  if (text.length < 90000) { try { cache.put(CACHE_KEY, text, CONFIG.CACHE_SECONDS); } catch (err) { /* non gardé */ } }
+  return text;
+}
+
 /** POST { ts, nonce, sig, payload: "<JSON>" } — payload = { action, … }. */
 function doPost(e) {
   var action = "";
+  // Accès direct du site (D-018) : ?route=contact|registration, sans signature, revalidé et limité
+  var route = String((e && e.parameter && e.parameter.route) || "");
+  if (route) return publicPost_(e, route);
   try {
     var raw = (e && e.postData && e.postData.contents) || "{}";
     if (raw.length > 120000) return json_({ status: "invalid", fields: { body: "too_long" } });
@@ -1020,6 +1071,206 @@ function doPost(e) {
     try { log_(action || "Appel", "", "Erreur", String(err && err.message || err).slice(0, 300)); } catch (e3) { /* journal indisponible */ }
     return json_({ status: "error" });
   }
+}
+
+/* ======================================================================= accès direct du site (D-018) */
+/*
+ * Mode « tout chez Google » : le site publié (GitHub Pages) appelle ce script directement, SANS signature, pour trois
+ * routes publiques seulement. Tout le reste (paiement, annulation, comptes, sauvegardes…) exige la signature du Worker.
+ *   GET  ?route=sessions[&formation=…]  liste publique des sessions, aucune donnée personnelle, en cache ;
+ *   POST ?route=contact                 contact, devis, salle, « être prévenu », question transmise par l'assistant ;
+ *   POST ?route=registration            réservation sur facture (entreprise avec n° de TVA) ou demande d'inscription.
+ * Corps : JSON envoyé en text/plain (requête « simple » : pas de pré-vérification CORS, qu'Apps Script ne traite pas),
+ * ou formulaire HTML classique (navigateur sans JavaScript : la réponse est une page). Chaque demande est revalidée ici
+ * (champs, champ piège, délai minimum, limites par adresse e-mail et globales, doublons) et écrite SOUS VERROU avant
+ * tout e-mail. Réponses au même format que le Worker (worker/src/routes/forms.js) : « ok: true » seulement si la
+ * demande est réellement enregistrée.
+ */
+var PUBLIC_MESSAGES = { INVALID: "form.fix_errors", RATE_LIMITED: "form.rate_limited", BUSY: "reg.busy", FULL: "reg.full",
+  NOT_ENOUGH: "reg.unavailable", CLOSED: "reg.closed", NOT_FOUND: "reg.session_unavailable", ERROR: "form.error_text" };
+
+function publicFail_(lang, code, extra) {
+  var out = { ok: false, code: code, message: tr_(lang, PUBLIC_MESSAGES[code] || "form.error_text", extra || {}) };
+  Object.keys(extra || {}).forEach(function (k) { out[k] = extra[k]; });
+  return out;
+}
+
+/** Seuil « dernières places » : max(3 ; 20 % de la capacité) (même règle que worker/src/routes/sessions.js). */
+function lowThreshold_(capacity) { return Math.max(3, Math.ceil(capacity * 0.2)); }
+/** Format public d'une session, identique à celui du Worker (clés lues par sessions.js). */
+function publicSession_(s) {
+  var capacity = Number(s.capacity) || 0, remaining = Math.max(0, Number(s.seatsLeft) || 0), state = "open";
+  if (s.status === "cancelled") state = "cancelled";
+  else if (s.status === "closed") state = "closed";
+  else if (!capacity) state = "on_request";
+  else if (remaining <= 0 || s.status === "full") state = "full";
+  else if (remaining <= lowThreshold_(capacity)) state = "low";
+  return {
+    id: s.id, training: s.training, formation: s.training, date: s.date, startDate: s.date, endDate: s.endDate || null,
+    startTime: s.startTime || null, endTime: s.endTime || null, location: s.location, language: s.language || "fr",
+    capacity: capacity, seatsLeft: remaining, remaining: remaining, booked: Math.max(0, capacity - remaining), status: s.status,
+    state: state, closesAt: s.closesAt || null, price: s.price == null ? null : s.price
+  };
+}
+function publicSessionsList_(p) {
+  var data = JSON.parse(sessionsText_()), formation = String((p && p.formation) || "");
+  if (!/^[a-z0-9][a-z0-9-]{1,60}$/.test(formation)) formation = "";
+  var list = (data.sessions || []).map(publicSession_).filter(function (s) { return !formation || s.training === formation; });
+  return { ok: true, status: "ok", source: "sheet", generatedAt: data.generatedAt || null, sessions: list };
+}
+
+function publicPost_(e, route) {
+  var type = String((e && e.postData && e.postData.type) || ""), html = /x-www-form-urlencoded|multipart\/form-data/i.test(type);
+  var raw = String((e && e.postData && e.postData.contents) || ""), data = {};
+  if (raw.length > 60000) return publicAnswer_(html, "fr", publicFail_("fr", "INVALID"), "");
+  if (html) {
+    var p = (e && e.parameter) || {};
+    Object.keys(p).forEach(function (k) { if (k !== "route") data[k] = String(p[k]); });
+  } else {
+    try { data = JSON.parse(raw || "{}") || {}; } catch (err) { data = {}; }
+    if (typeof data !== "object" || Array.isArray(data)) data = {};
+  }
+  var lang = lang_(data.lang || data.locale), out;
+  try {
+    if (route === "contact") out = publicContact_(data, html);
+    else if (route === "registration" && !html) out = publicRegistration_(data);
+    else out = publicFail_(lang, "INVALID");
+  } catch (err) {
+    try { log_("Site (accès direct)", "", "Erreur", String(err && err.message || err).slice(0, 300)); } catch (e2) { /* journal indisponible */ }
+    out = publicFail_(lang, "ERROR");
+  }
+  return publicAnswer_(html, lang, out, data.page);
+}
+
+/** Demande enregistrée (onglet Demandes) puis e-mail à l'équipe (file d'envoi, envoi immédiat). */
+function contactAndNotify_(body) {
+  var res = submitContact_(body);
+  if (res.status === "ok" && !res.ignored && !res.spam && !res.duplicate && res.email && res.email.allowed) {
+    var req = validateContact_(body).req, mail = teamRequestMail_(req, res.reference, res.trainingName);
+    queue_({ kind: "Demande", priority: "P2", template: "equipe", reply: req.email, subject: mail.subject, html: mail.html,
+      text: mail.text, ref: res.reference, lang: "fr", counted: true });
+    processOutbox_(2);
+  }
+  return res;
+}
+function publicContactResult_(lang, res, extra) {
+  if (res.status === "ok") { var ok = { ok: true, reference: res.reference }; Object.keys(extra || {}).forEach(function (k) { ok[k] = extra[k]; }); return ok; }
+  if (res.status === "invalid") return publicFail_(lang, "INVALID", { fields: res.fields || {} });
+  if (res.status === "rate_limited") return publicFail_(lang, "RATE_LIMITED");
+  if (res.status === "busy") return publicFail_(lang, "BUSY");
+  return publicFail_(lang, "ERROR");
+}
+
+function publicContact_(d, html) {
+  var lang = lang_(d.lang), elapsed = Number(d.elapsedMs != null && d.elapsedMs !== "" ? d.elapsedMs : d.elapsed);
+  var body = {
+    requestId: String(d.requestId || (html ? Utilities.getUuid() : "")), form: String(d.form || d.type || ""), lang: lang,
+    name: d.name, email: d.email, phone: d.phone, company: d.company, message: d.message, training: d.training,
+    sessionId: d.sessionId, page: d.page, details: Array.isArray(d.details) ? d.details : [],
+    consent: d.consent === true || d.consent === "1" || d.consent === "on" || d.consent === "true",
+    website: d.website, elapsed: isFinite(elapsed) ? elapsed : 99999, reserveEmail: true
+  };
+  return publicContactResult_(lang, contactAndNotify_(body));
+}
+
+/** Réservation : mêmes règles que le Worker (worker/src/lib/validate.js, validateRegistration). */
+function registrationInput_(b) {
+  var fields = {};
+  var c = b.customer && typeof b.customer === "object" ? b.customer : (b.contact && typeof b.contact === "object" ? b.contact : {});
+  var bi = b.billing && typeof b.billing === "object" ? b.billing : {};
+  var people = (Array.isArray(b.participants) ? b.participants : []).slice(0, CONFIG.MAX_SEATS_PER_ITEM).map(function (x) {
+    x = x && typeof x === "object" ? x : {};
+    return { firstName: clean_(x.firstName, 80), lastName: clean_(x.lastName, 80), email: clean_(x.email, 160).toLowerCase() };
+  }).filter(function (x) { return x.firstName || x.lastName; });
+  var v = {
+    requestId: String(b.requestId == null ? "" : b.requestId), lang: lang_(b.lang || b.locale),
+    training: clean_(b.training, 64).toLowerCase(), sessionId: b.sessionId ? clean_(b.sessionId, 80) : "",
+    customer: { firstName: clean_(c.firstName, 80), lastName: clean_(c.lastName, 80), email: clean_(c.email, 160).toLowerCase(), phone: clean_(c.phone, 40) },
+    billing: { type: bi.type === "company" ? "company" : "individual", company: clean_(bi.company, 120), vat: clean_(bi.vat, 20),
+      street: clean_(bi.street, 160), zip: clean_(bi.zip, 12), city: clean_(bi.city, 80), country: clean_(bi.country || "BE", 40) },
+    participants: people, notes: cleanText_(b.notes, 1000), trainingLanguage: clean_(b.trainingLanguage, 8),
+    terms: b.terms === true || b.consent === true
+  };
+  if (!REQUEST_RE.test(v.requestId)) fields.requestId = "invalid";
+  if (!/^[a-z0-9][a-z0-9-]{1,60}$/.test(v.training)) fields.training = "invalid";
+  if (v.sessionId && !SESSION_RE.test(v.sessionId)) fields.sessionId = "invalid";
+  if (!v.customer.firstName) fields.firstName = "required";
+  if (!v.customer.lastName) fields.lastName = "required";
+  if (!EMAIL_RE.test(v.customer.email)) fields.email = "invalid";
+  if (!PHONE_RE.test(v.customer.phone)) fields.phone = "invalid";
+  ["street", "zip", "city"].forEach(function (k) { if (!v.billing[k]) fields[k] = "required"; });
+  if (v.billing.type === "company") {
+    if (!v.billing.company) fields.company = "required";
+    if (v.billing.vat) { var n = belgianVat_(v.billing.vat); if (n) v.billing.vat = n; else fields.vat = "invalid"; }
+  }
+  if (!v.participants.length) fields.participants = "required";
+  if (!v.terms) fields.terms = "required";
+  return { v: v, fields: fields };
+}
+/** Demande d'inscription (onglet Demandes) quand aucune place ne peut être bloquée. */
+function registrationRequest_(v) {
+  var names = v.participants.map(function (x) { return (x.firstName + " " + x.lastName).trim() + (x.email ? " (" + x.email + ")" : ""); }).join(", ");
+  var details = [["Participants", names], ["Places", String(v.participants.length)], ["Facturation", v.billing.type === "company" ? "Entreprise" : "Particulier"],
+    ["TVA", v.billing.vat], ["Adresse", [v.billing.street, (v.billing.zip + " " + v.billing.city).trim(), v.billing.country].filter(Boolean).join(", ")],
+    ["Langue de la formation", v.trainingLanguage]].filter(function (d) { return d[1]; }).map(function (d) { return [d[0], String(d[1]).slice(0, 400)]; });
+  return { requestId: v.requestId, form: "inscription", lang: v.lang, name: (v.customer.firstName + " " + v.customer.lastName).trim(),
+    email: v.customer.email, phone: v.customer.phone, company: v.billing.company, message: v.notes, training: v.training,
+    sessionId: v.sessionId || "", page: "", consent: true, details: details, elapsed: 99999, reserveEmail: true };
+}
+function publicRegistration_(d) {
+  var lang = lang_(d.lang || d.locale), elapsed = Number(d.elapsedMs);
+  if (clean_(d.website) || (isFinite(elapsed) && elapsed >= 0 && elapsed < CONFIG.CONTACT_MIN_FILL_MS)) {
+    return { ok: true, reference: newReference_({}, "CFS"), status: "request" };
+  }
+  var r = registrationInput_(d);
+  if (Object.keys(r.fields).length) return publicFail_(lang, "INVALID", { fields: r.fields });
+  var v = r.v;
+  // Aucune place ne peut être bloquée sans session choisie, ni pour un particulier (pas de paiement en ligne ici)
+  if (!v.sessionId || !(v.billing.type === "company" && v.billing.vat)) {
+    return publicContactResult_(lang, contactAndNotify_(registrationRequest_(v)), { status: "request" });
+  }
+  var vat = Number(prop_("VAT_RATE"));
+  var res = submitBooking_({ action: "book", requestId: v.requestId, userId: "", lang: v.lang, payMode: "invoice",
+    vatRate: vat >= 0 && vat <= 0.3 && prop_("VAT_RATE") ? vat : 0.21, customer: v.customer, billing: v.billing, notes: v.notes,
+    items: [{ training: v.training, sessionId: v.sessionId, quantity: v.participants.length, participants: v.participants }] });
+  if (res.status === "unavailable") {
+    var pb = (res.problems || [])[0] || {};
+    var code = pb.reason === "full" ? "FULL" : pb.reason === "insufficient" ? "NOT_ENOUGH" : pb.reason === "closed" ? "CLOSED" : "NOT_FOUND";
+    return publicFail_(lang, code, { remaining: pb.remaining || 0, sessionId: v.sessionId });
+  }
+  if (res.status !== "ok") return publicContactResult_(lang, res);
+  var item = (res.items || [])[0] || {};
+  return { ok: true, reference: res.reference, status: "pending_invoice", expiresAt: res.expiresAt || null, amounts: res.amounts || null,
+    sessionId: v.sessionId, remaining: item.remaining != null ? item.remaining : null, capacity: item.capacity != null ? item.capacity : null };
+}
+
+/** E-mail à l'équipe pour une demande du site (même contenu que worker/src/lib/emails.js, teamRequestEmail). */
+function teamRequestMail_(req, ref, trainingName) {
+  var label = { contact: "Question", devis: "Demande de devis", inscription: "Demande d'inscription", salle: "Location de salle",
+    prevenir: "Être prévenu des prochaines dates", assistant: "Question transmise par l'assistant" }[req.form] || "Demande";
+  var rows = [["Référence", ref], ["Nom", req.name], ["Entreprise", req.company], ["E-mail", req.email], ["Téléphone", req.phone],
+    ["Formation", trainingName || req.training], ["Session", req.session], ["Langue", String(req.lang || "").toUpperCase()], ["Page", req.page]]
+    .concat(req.details || []).filter(function (x) { return x[1]; });
+  var table = '<table role="presentation" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-size:14px">' + rows.map(function (x) {
+    return '<tr><td style="color:#4A5869;padding-right:16px">' + esc_(x[0]) + "</td><td>" + esc_(x[1]) + "</td></tr>";
+  }).join("") + "</table>";
+  var msg = req.message ? '<p style="white-space:pre-line;background:#F2F5F9;padding:12px;border-radius:6px">' + esc_(req.message) + "</p>" : "";
+  var html = frame_("fr", label, table + msg);
+  return { subject: "[Site] " + label + " : " + req.name + (req.company ? ", " + req.company : "") + " (" + ref + ")", html: html, text: plain_(html) };
+}
+
+/** Réponse : JSON (site avec JavaScript) ou page HTML de confirmation / d'erreur (formulaire sans JavaScript). */
+function publicAnswer_(html, lang, out, page) {
+  if (!html) return json_(out);
+  var ok = out.ok === true, site = String(prop_("SITE_URL") || CONFIG.SITE_URL).replace(/\/$/, "");
+  var back = site + (PAGE_RE.test(String(page || "")) ? String(page) : "/");
+  var title = tr_(lang, ok ? "form.sent_title" : "form.error_title");
+  var text = ok ? tr_(lang, "form.sent_text", { ref: out.reference }) : out.message || tr_(lang, "form.error_text");
+  var page_ = '<!doctype html><html lang="' + esc_(lang) + '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>' +
+    '<body style="margin:0;background:#F2F5F9;font-family:Arial,Helvetica,sans-serif;color:#0F1C2E"><main style="max-width:560px;margin:40px auto;background:#ffffff;border-radius:12px;padding:28px 32px;border-top:6px solid ' + (ok ? "#0B7F4E" : "#C8241C") + '">' +
+    '<h1 style="margin:0 0 12px;font-size:24px">' + esc_(title) + '</h1><p style="line-height:1.5">' + esc_(text) + "</p>" +
+    '<p><a href="' + esc_(back) + '" target="_top" style="display:inline-block;background:#0D4A8C;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:6px">' + esc_(tr_(lang, "form.back")) + "</a></p></main></body></html>";
+  return HtmlService.createHtmlOutput(page_).setTitle(title + " – Centre CFS");
 }
 
 /* ======================================================================= validation */
@@ -1237,7 +1488,7 @@ function submitBooking_(body) {
     // Sur facture : e-mail au client tout de suite (P1), équipe en copie cachée. En ligne : e-mail au paiement confirmé.
     if (!online && items.some(function (i) { return i.sessionId; })) {
       queueClient_("Réservation (facture)", "P1", c.email, order.lang, tr_(order.lang, "email.invoice_subject", { ref: ref }), tr_(order.lang, "email.invoice_title"),
-        bookingMailInner_(order.lang, c.firstName, tr_(order.lang, "email.invoice_body"), ref, items, sessions, amounts, "email.pay_invoice"), ref, null, CONFIG.TEAM_EMAIL);
+        bookingMailInner_(order.lang, c.firstName, tr_(order.lang, "email.invoice_body"), ref, items, sessions, amounts, "email.pay_invoice"), ref, null, teamEmail_());
     }
     result = { status: "ok", reference: ref, payMode: order.payMode, lang: order.lang, items: items, amounts: amounts,
       expiresAt: fmt_(expires, "yyyy-MM-dd'T'HH:mm") };
@@ -1351,7 +1602,7 @@ function confirmPayment_(body) {
         var excl = Math.round(paidRows.reduce(function (n, r) { return n + (r.amountExcl || 0); }, 0) * 100);
         queueClient_("Paiement reçu", "P1", first.email, plang, tr_(plang, "email.paid_subject", { ref: ref }), tr_(plang, "email.paid_title"),
           bookingMailInner_(plang, String(first.contact || "").split(" ")[0], tr_(plang, "email.paid_body", { amount: centsText_(cents, plang) }), ref, paidItems, sessions,
-            { exclCents: excl, vatCents: cents - excl, inclCents: cents }, "email.pay_online"), ref, null, CONFIG.TEAM_EMAIL);
+            { exclCents: excl, vatCents: cents - excl, inclCents: cents }, "email.pay_online"), ref, null, teamEmail_());
         sendNow = true;
       }
     }
@@ -1638,12 +1889,15 @@ function emailConfig_() {
   return c.service && c.client && c.team && c.publicKey && c.privateKey ? c : null;
 }
 function monthKey_() { return fmt_(now_(), "yyyy-MM"); }
-function quota_() { var q = Number(prop_("EMAILJS_MONTHLY_QUOTA")); return q > 0 ? q : CONFIG.EMAIL_QUOTA; }
+function quota_() {
+  var q = Number(prop_("EMAILJS_MONTHLY_QUOTA") || prop_("EMAIL_MONTHLY_QUOTA"));
+  return q > 0 ? q : emailConfig_() ? CONFIG.EMAIL_QUOTA : CONFIG.GMAIL_MONTHLY_QUOTA;
+}
 function quotaState_() {
   var used = Number(prop_("EMAIL_COUNT_" + monthKey_()) || 0), quota = quota_();
   return { month: monthKey_(), used: used, quota: quota, state: used >= quota ? "full" : used >= quota * CONFIG.EMAIL_WARN_RATIO ? "warn" : "ok" };
 }
-/** Une requête EmailJS est-elle permise pour cette priorité ? P1 et P2 jusqu'à 100 %, P3 jusqu'à 80 %. */
+/** Un envoi est-il permis pour cette priorité ? P1 et P2 jusqu'à 100 %, P3 jusqu'à 80 %. */
 function quotaAllows_(priority, used, quota) {
   return priority === "P3" ? used < quota * CONFIG.EMAIL_WARN_RATIO : used < quota;
 }
@@ -1658,24 +1912,24 @@ function reserveQuota_(priority, n, label) {
     var full = used >= quota;
     if (full && !p.getProperty("EMAIL_FULL_" + monthKey_())) {
       p.setProperty("EMAIL_FULL_" + monthKey_(), "1");
-      log_("Quota e-mails", "", "Erreur", "Quota mensuel EmailJS atteint (" + used + "/" + quota + ") : les e-mails restent dans la file d'envoi (« Quota atteint »).");
+      log_("Quota e-mails", "", "Erreur", "Quota mensuel d'e-mails atteint (" + used + "/" + quota + ") : les e-mails restent dans la file d'envoi (« Quota atteint »).");
       markQuotaTab_(true);
     }
     return { allowed: false, used: used, quota: quota, state: full ? "full" : "warn" };
   }
   used += n;
   p.setProperty(key, String(used));
-  log_("E-mail", label || "", "Info", priority + " · requête EmailJS n° " + used + "/" + quota + " du mois");
+  log_("E-mail", label || "", "Info", priority + " · e-mail n° " + used + "/" + quota + " du mois");
   var warnAt = Math.ceil(quota * CONFIG.EMAIL_WARN_RATIO);
   if (used >= warnAt && !p.getProperty("EMAIL_WARN_" + monthKey_())) {
     p.setProperty("EMAIL_WARN_" + monthKey_(), "1");
-    log_("Quota e-mails", "", "Alerte", "80 % du quota EmailJS utilisé (" + used + "/" + quota + ") : rappels (P3) suspendus jusqu'au mois prochain.");
+    log_("Quota e-mails", "", "Alerte", "80 % du quota d'e-mails utilisé (" + used + "/" + quota + ") : rappels (P3) suspendus jusqu'au mois prochain.");
     if (used < quota) {
       p.setProperty(key, String(used + 1));
-      queue_({ kind: "Alerte quota", priority: "P1", template: "equipe", to: CONFIG.TEAM_EMAIL, reply: CONFIG.TEAM_EMAIL,
+      queue_({ kind: "Alerte quota", priority: "P1", template: "equipe", to: teamEmail_(), reply: teamEmail_(),
         subject: "[Site] 80 % du quota d'e-mails utilisé (" + used + "/" + quota + ")",
         html: frame_("fr", "Quota d'e-mails : 80 % utilisé", "<p>Ce mois-ci, " + used + " envois sur " + quota + " ont été utilisés. Les rappels (J-2, recyclage) sont suspendus jusqu'au 1er du mois prochain. Les confirmations, annulations et e-mails de connexion continuent jusqu'à 100 %.</p><p>Suivi : onglet « " + TAB.OUTBOX + " » et docs/QUOTAS.md.</p>"),
-        text: "80 % du quota EmailJS utilisé (" + used + "/" + quota + ").", counted: true });
+        text: "80 % du quota d'e-mails utilisé (" + used + "/" + quota + ").", counted: true });
     }
   }
   return { allowed: true, used: used, quota: quota, state: used >= quota ? "full" : used >= warnAt ? "warn" : "ok" };
@@ -1695,7 +1949,7 @@ function markQuotaTab_(full) {
 function queue_(m) {
   var t = table_(TAB.OUTBOX);
   if (!t) { ensureTab_(TAB.OUTBOX); t = table_(TAB.OUTBOX); }
-  var to = m.template === "equipe" ? CONFIG.TEAM_EMAIL : String(m.to || "");
+  var to = m.template === "equipe" ? teamEmail_() : String(m.to || "");
   if (!EMAIL_RE.test(to)) return 0;
   appendRows_(t, [rowFor_(t, {
     created: now_(), kind: m.kind || "", priority: /^P[123]$/.test(String(m.priority)) ? m.priority : "P1",
@@ -1713,7 +1967,7 @@ function enqueueEmail_(body) {
   return line ? { status: "ok" } : { status: "invalid" };
 }
 function queueTeamAlert_(subject, html, ref) {
-  return queue_({ kind: "Alerte équipe", priority: "P1", template: "equipe", to: CONFIG.TEAM_EMAIL, reply: CONFIG.TEAM_EMAIL,
+  return queue_({ kind: "Alerte équipe", priority: "P1", template: "equipe", to: teamEmail_(), reply: teamEmail_(),
     subject: "[Site] " + subject, html: frame_("fr", subject, html), text: subject, ref: ref });
 }
 
@@ -1722,7 +1976,7 @@ function sendEmailJs_(m) {
   var c = emailConfig_();
   if (!c) { var e0 = new Error("EmailJS n'est pas configuré (propriétés du script)"); e0.code = 0; throw e0; }
   var params = m.template === "equipe"
-    ? { reply_to: m.reply || CONFIG.TEAM_EMAIL, subject: m.subject, html: m.html, text: m.text }
+    ? { reply_to: m.reply || teamEmail_(), subject: m.subject, html: m.html, text: m.text }
     : { to_email: m.to, bcc: m.bcc || "", subject: m.subject, html: m.html, text: m.text };
   var res = UrlFetchApp.fetch("https://api.emailjs.com/api/v1.0/email/send", {
     method: "post", contentType: "application/json", muteHttpExceptions: true,
@@ -1732,6 +1986,26 @@ function sendEmailJs_(m) {
   if (code !== 200) { var e = new Error("EmailJS a refusé l'envoi (" + code + ") " + clean_(res.getContentText(), 200)); e.code = code; throw e; }
 }
 function backoffMinutes_(tries) { return [5, 15, 60, 180, 720][Math.min(Math.max(tries - 1, 0), 4)]; }
+
+/** Boîte de l'équipe : propriété du script TEAM_EMAIL si elle est valide, sinon CONFIG.TEAM_EMAIL. */
+function teamEmail_() { var p = clean_(prop_("TEAM_EMAIL")); return EMAIL_RE.test(p) ? p : CONFIG.TEAM_EMAIL; }
+/** « emailjs » si ses 5 propriétés sont renseignées, sinon « gmail » (compte Google propriétaire de la feuille). */
+function mailMode_() { return emailConfig_() ? "emailjs" : "gmail"; }
+function sendEmail_(m) { return emailConfig_() ? sendEmailJs_(m) : sendGmail_(m); }
+/**
+ * Envoi par le Gmail du compte propriétaire (MailApp). Équipe : « Répondre » s'adresse au visiteur. Client : copie
+ * cachée à l'équipe si demandé. Quota du jour épuisé : erreur .daily (l'e-mail attend dans la file, sans essai perdu).
+ */
+function sendGmail_(m) {
+  var team = m.template === "equipe", to = team ? teamEmail_() : String(m.to || "");
+  if (MailApp.getRemainingDailyQuota() < (!team && m.bcc ? 2 : 1)) {
+    var e = new Error("Quota Gmail du jour atteint : envoi reporté."); e.code = 429; e.daily = true; throw e;
+  }
+  var o = { to: to, subject: String(m.subject || ""), htmlBody: String(m.html || ""), body: String(m.text || "") || plain_(m.html),
+    name: "Centre CFS", replyTo: team ? (m.reply || teamEmail_()) : teamEmail_() };
+  if (!team && m.bcc) o.bcc = m.bcc;
+  MailApp.sendEmail(o);
+}
 
 /** Envoie les e-mails dont l'heure est venue (au plus `limit`), 1,1 s entre deux envois, quota respecté. */
 function processOutbox_(limit) {
@@ -1752,16 +2026,22 @@ function processOutbox_(limit) {
       try { q = reserveQuota_(priority, 1, clean_(get_(t, row, "ref")) || clean_(get_(t, row, "kind"))); } finally { lk.releaseLock(); }
       if (!q.allowed) { setCell_(t, line, "status", q.state === "full" ? Q_QUOTA : Q_PAUSED); continue; }
     }
-    if (!first) Utilities.sleep(CONFIG.EMAIL_SPACING_MS);
+    if (!first && emailConfig_()) Utilities.sleep(CONFIG.EMAIL_SPACING_MS);
     first = false;
     tries = Math.max(tries, 0) + 1;
     try {
-      sendEmailJs_({ template: clean_(get_(t, row, "template")), to: clean_(get_(t, row, "to")), bcc: clean_(get_(t, row, "bcc")),
+      sendEmail_({ template: clean_(get_(t, row, "template")), to: clean_(get_(t, row, "to")), bcc: clean_(get_(t, row, "bcc")),
         reply: clean_(get_(t, row, "reply")), subject: String(get_(t, row, "subject")), html: String(get_(t, row, "html")), text: String(get_(t, row, "text")) });
       setCell_(t, line, "status", Q_SENT); setCell_(t, line, "tries", tries); setCell_(t, line, "error", "");
       sent++;
     } catch (err) {
       var msg = String(err && err.message || err).slice(0, 300), retryable = !err.code || err.code === 429 || err.code >= 500;
+      if (err && err.daily) {
+        // Quota Gmail du jour : l'e-mail attend 6 heures, sans compter d'essai ; la suite de la file attend aussi
+        setCell_(t, line, "tries", tries - 1); setCell_(t, line, "error", asText_(msg));
+        setCell_(t, line, "status", Q_TODO); setCell_(t, line, "next", new Date(now.getTime() + 6 * 3600000));
+        break;
+      }
       setCell_(t, line, "tries", tries); setCell_(t, line, "error", asText_(msg));
       if (tries >= CONFIG.MAX_SEND_TRIES || !retryable) {
         setCell_(t, line, "status", Q_FAILED);
@@ -2210,7 +2490,6 @@ function checkConsistency() {
   }
   var q = quotaState_();
   if (q.state !== "ok") problems.push("Quota e-mails : " + q.used + "/" + q.quota + (q.state === "full" ? " — ATTEINT." : " — rappels suspendus."));
-  if (!emailConfig_()) problems.push("EmailJS n'est pas configuré (propriétés du script EMAILJS_*).");
   if (!hmacSecret_()) problems.push("Secret de signature absent (propriété HMAC_SECRET) : le site ne peut pas parler à la feuille.");
   ui_().alert(problems.length ? "À corriger :\n\n" + problems.slice(0, 40).join("\n") : "Tout est cohérent : " + sessions.list.length + " session(s), " + bookings.rows.length + " ligne(s) de réservation. E-mails ce mois-ci : " + q.used + "/" + q.quota + ".");
 }
@@ -2260,9 +2539,9 @@ function sendTestEmail() {
   try {
     var q = reserveQuota_("P1", 1, "Test");
     if (!q.allowed) { ui.alert("Quota mensuel atteint : aucun envoi possible (" + q.used + "/" + q.quota + ")."); return; }
-    sendEmailJs_({ template: "equipe", reply: CONFIG.TEAM_EMAIL, subject: "[Site] E-mail de test (" + fmt_(now_(), "dd/MM/yyyy HH:mm") + ")",
-      html: frame_("fr", "E-mail de test", "<p>Si vous lisez ce message dans la boîte " + esc_(CONFIG.TEAM_EMAIL) + ", les e-mails de la feuille partent bien par EmailJS.</p>"), text: "E-mail de test du Centre CFS." });
-    ui.alert("E-mail de test envoyé à " + CONFIG.TEAM_EMAIL + ". S'il n'arrive pas dans les 5 minutes, regardez dans les indésirables puis dans l'onglet « " + TAB.LOG + " ».");
+    sendEmail_({ template: "equipe", reply: teamEmail_(), subject: "[Site] E-mail de test (" + fmt_(now_(), "dd/MM/yyyy HH:mm") + ")",
+      html: frame_("fr", "E-mail de test", "<p>Si vous lisez ce message dans la boîte " + esc_(teamEmail_()) + ", les e-mails de la feuille partent bien (" + (emailConfig_() ? "EmailJS" : "Gmail") + ").</p>"), text: "E-mail de test du Centre CFS." });
+    ui.alert("E-mail de test envoyé à " + teamEmail_() + ". S'il n'arrive pas dans les 5 minutes, regardez dans les indésirables puis dans l'onglet « " + TAB.LOG + " ».");
   } catch (err) {
     ui.alert("L'envoi a échoué : " + String(err && err.message || err).slice(0, 400));
   }
@@ -2376,8 +2655,7 @@ function install() {
   clearCache_();
   var missing = [];
   if (!hmacSecret_()) missing.push("HMAC_SECRET");
-  if (!emailConfig_()) missing.push("EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_CLIENT, EMAILJS_TEMPLATE_EQUIPE, EMAILJS_PUBLIC_KEY, EMAILJS_PRIVATE_KEY");
-  var done = "Feuille prête ✔\n\n• Formations : " + readFormations_().list.length + ".\n• Sessions : une ligne = une session ; les places restantes sont calculées automatiquement.\n• Tâche automatique : toutes les 10 minutes." +
+  var done = "Feuille prête ✔\n\n• Formations : " + readFormations_().list.length + ".\n• Sessions : une ligne = une session ; les places restantes sont calculées automatiquement.\n• Tâche automatique : toutes les 10 minutes.\n• E-mails : " + (emailConfig_() ? "EmailJS" : "Gmail de ce compte Google (environ 100 par jour), équipe : " + teamEmail_()) + "." +
     (missing.length ? "\n\n⚠ À compléter dans Paramètres du projet › Propriétés du script : " + missing.join(", ") + "." : "") +
     "\n\nÉtape suivante : Déployer › Nouveau déploiement › Application Web (voir docs/SETUP.md).";
   try { ui_().alert(done); } catch (e) { try { ss.toast("Feuille prête ✔ — voir docs/SETUP.md", "Centre CFS", 10); } catch (e2) { /* lancé depuis l'éditeur */ } }
