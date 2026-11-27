@@ -16,7 +16,10 @@ for (const f of [...files, gs]) {
     execFileSync(process.execPath, ["--check", f], { stdio: "pipe" });
   } catch (e) {
     failed++;
-    console.error(String(e.stderr || e.message));
+    const msg = String(e.stderr || e.message);
+    console.error(msg);
+    // Annotation GitHub (lisible dans Actions et par l'API publique)
+    if (process.env.GITHUB_ACTIONS) console.log(`::error file=${f}::${msg.replace(/%/g, "%25").replace(/\r?\n/g, "%0A").slice(0, 3000)}`);
   }
 }
 console.log(failed ? `${failed} fichier(s) en erreur` : `Syntaxe JavaScript : OK (${files.length + 1} fichiers)`);

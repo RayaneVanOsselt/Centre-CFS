@@ -40,24 +40,34 @@ jobs:
         run: python3 site/build.py
 
       - name: Syntaxe JavaScript
+        if: ${{ !cancelled() }}
         run: npm run check:js
 
       - name: Lint
+        if: ${{ !cancelled() }}
         run: npx eslint worker tests scripts
 
       - name: Tests Node (Worker, moteur Google Sheets, Supabase, chatbot)
-        run: npm test
+        if: ${{ !cancelled() }}
+        run: >-
+          node --test --test-reporter=spec --test-reporter-destination=stdout
+          --test-reporter=./scripts/gh-reporter.mjs --test-reporter-destination=stdout
+          "tests/**/*.test.js"
 
       - name: Tests Python
+        if: ${{ !cancelled() }}
         run: python3 -m pytest site/tests -q
 
       - name: Traductions, liens et SEO
+        if: ${{ !cancelled() }}
         run: npm run check
 
       - name: Construction en mode Worker (domaine, API)
+        if: ${{ !cancelled() }}
         run: npm run build:worker
 
       - name: Vulnérabilités des dépendances (production)
+        if: ${{ !cancelled() }}
         run: npm audit --omit=dev --audit-level=high
 
   secrets:
