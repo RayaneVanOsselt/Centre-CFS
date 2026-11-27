@@ -28,7 +28,13 @@ export default [
     rules,
   },
   {
+    files: ["tests/browser/**/*.js"],
+    languageOptions: { ecmaVersion: "latest", sourceType: "module", globals: { ...shared, window: "readonly", document: "readonly", location: "readonly", XMLHttpRequest: "readonly", process: "writable", Buffer: "writable" } },
+    rules,
+  },
+  {
     files: ["tests/**/*.js", "scripts/**/*.js", "eslint.config.js"],
+    ignores: ["tests/browser/**"],
     languageOptions: { ecmaVersion: "latest", sourceType: "module", globals: { ...shared, process: "readonly", Buffer: "readonly" } },
     rules,
   },

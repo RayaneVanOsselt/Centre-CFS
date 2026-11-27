@@ -174,12 +174,16 @@ test("JWT Supabase (ES256, JWKS) : valide, expiré, autre émetteur, signature d
 
 /* ------------------------------------------------------------------ routeur */
 
-test("routeur : 404, 405, écriture depuis une autre origine refusée", async () => {
+test("routeur : écriture depuis une autre origine refusée", { skip: Boolean(globalThis.document) && "navigateur : en-tête Origin non modifiable" }, async () => {
+  const env = { SITE_URL: "https://centrecfs.be" };
+  const r = await handleApi(new Request("https://centrecfs.be/api/contact", { method: "POST", headers: { Origin: "https://evil.example" }, body: "{}" }), env, {});
+  assert.equal(r.status, 403);
+});
+
+test("routeur : 404, 405, santé sans secret", async () => {
   const env = { SITE_URL: "https://centrecfs.be" };
   assert.equal((await handleApi(new Request("https://centrecfs.be/api/nope"), env, {})).status, 404);
   assert.equal((await handleApi(new Request("https://centrecfs.be/api/contact"), env, {})).status, 405);
-  const r = await handleApi(new Request("https://centrecfs.be/api/contact", { method: "POST", headers: { Origin: "https://evil.example" }, body: "{}" }), env, {});
-  assert.equal(r.status, 403);
   const h = await (await handleApi(new Request("https://centrecfs.be/api/health"), env, {})).json();
   assert.equal(h.ok, true);
   assert.equal(h.sheet, false);

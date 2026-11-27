@@ -28,9 +28,14 @@ Les comptes (5), le paiement (6) et l'IA du chatbot (7) viennent ensuite, chacun
    ```
    Les coller dans `.dev.vars` (`RESERVATIONS_HMAC_SECRET=` et `IP_HASH_SALT=`), jamais ailleurs.
 
-Sans Node, tu peux quand même construire et contrôler le site : `python3 site/build.py`,
-`python3 site/tools/check_links.py`, `python3 site/tools/check_seo.py`, `sh scripts/check-js-syntax.sh` (macOS).
-Les tests JavaScript tournent alors dans GitHub Actions (onglet *Actions*, workflow « CI ») à chaque envoi.
+Sans Node, tu peux quand même tout construire et tout tester :
+`python3 site/build.py`, `python3 site/tools/check_links.py`, `python3 site/tools/check_seo.py`,
+`sh scripts/check-js-syntax.sh` (macOS), et **les tests JavaScript dans le navigateur** :
+```bash
+python3 scripts/serve-tests.py
+```
+puis ouvrir http://localhost:8766/tests/browser/ (mêmes tests que `npm test`, sauf ceux de la base PGlite).
+Ils tournent aussi dans GitHub Actions (onglet *Actions*, workflow « CI ») à chaque envoi sur GitHub.
 
 ## 1. La feuille Google « Réservations – Centre CFS »
 
