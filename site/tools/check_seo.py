@@ -161,7 +161,8 @@ def main():
                     price = off.get("price")
                     if price is not None:
                         shown = f"{price:g}" if isinstance(price, (int, float)) else str(price)
-                        if shown not in "".join(p.text):
+                        page_text = re.sub(r"(?<=\d)[\s\u00a0\u202f.,](?=\d{3}\b)", "", "".join(p.text))  # « 1 290 » = 1290
+                        if shown not in page_text:
                             err(f"{where} : prix {shown} des données structurées absent de la page")
         visible = re.sub(r"\s+", " ", " ".join(p.text))
         for d in dates:

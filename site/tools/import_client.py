@@ -328,10 +328,32 @@ def write_report(rep, formations, sessions, salles, path, today):
         fh.write("\n".join(md))
 
 
+def apply_proposed_prices(rep, formations):
+    """Tarifs PROPOSÉS (site/content/tarifs.json) pour les formations sans prix dans client/formations.csv.
+    Le prix du client reste toujours prioritaire. Désactivable : CFS_PROPOSED_PRICES=0 (le site affiche alors « Sur devis »)."""
+    if os.environ.get("CFS_PROPOSED_PRICES", "1") == "0":
+        return 0
+    path = os.path.join(ROOT, "site", "content", "tarifs.json")
+    try:
+        proposed = json.load(open(path, encoding="utf-8")).get("prix", {})
+    except (OSError, ValueError):
+        return 0
+    n = 0
+    for slug, d in formations.items():
+        v = proposed.get(slug)
+        if d.get("prix") is None and isinstance(v, (int, float)) and v > 0:
+            d["prix"], d["propose"] = float(v), True
+            n += 1
+    if n:
+        rep.info(f"{n} tarif(s) PROPOSÉ(S) appliqué(s) depuis site/content/tarifs.json (à valider par le Centre CFS)")
+    return n
+
+
 def run(check_only=False, today=None, quiet=False):
     today = today or date.today()
     rep = Report()
     formations = import_formations(rep)
+    apply_proposed_prices(rep, formations)
     sessions = import_sessions(rep, formations, today)
     salles = import_salles(rep)
     if not check_only:

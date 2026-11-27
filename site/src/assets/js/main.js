@@ -194,6 +194,31 @@
     if (document.readyState === "complete") idle(go); else window.addEventListener("load", () => idle(go), { once: true });
   }
 
+  /* ---------- Recherche : panneau (loupe de l'en-tête ou touche « / ») et page Résultats, chargés à la demande ---------- */
+  const sc = cfg.search;
+  if (sc && sc.module) {
+    let mod = null;
+    const load = () => (mod = mod || import(sc.module));
+    $$("[data-search-open]").forEach((a) => {
+      a.addEventListener("pointerenter", () => { load().catch(() => {}); }, { once: true });
+      a.addEventListener("click", (e) => {
+        if (e.ctrlKey || e.metaKey || e.shiftKey) return;          // nouvel onglet : page Résultats
+        e.preventDefault();
+        load().then((m) => m.open(a)).catch(() => { window.location.href = a.href; });
+      });
+    });
+    document.addEventListener("keydown", (e) => {
+      const tgt = e.target;
+      const typing = tgt && (tgt.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(tgt.tagName));
+      if (e.key === "/" && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        load().then((m) => m.open($("[data-search-open]"))).catch(() => {});
+      }
+    });
+    const pageBox = $("[data-search-page]");
+    if (pageBox) load().then((m) => m.initPage(pageBox)).catch(() => {});
+  }
+
   /* ---------- Année du pied de page ---------- */
   $$("[data-year]").forEach((el) => { el.textContent = String(new Date().getFullYear()); });
 })();

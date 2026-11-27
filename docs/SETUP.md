@@ -54,34 +54,32 @@ Guide détaillé avec captures : `docs/GUIDE-FEUILLE.md`. En bref :
    et toute requête sans signature HMAC valide est refusée).
 6. Dans l'onglet *Sessions*, saisir la **capacité** de chaque session (sans capacité, la session s'affiche « sur demande »).
 
-## 2. Cloudflare (Worker + site)
+## 2. Cloudflare (Worker + site) — sans Node ni terminal
 
-1. Compte Cloudflare gratuit. Dans le terminal : `npx wrangler login`.
-2. Secrets du Worker (une commande par secret, la valeur est demandée sans s'afficher) :
-   ```bash
-   npx wrangler secret put RESERVATIONS_API_URL
-   ```
-   ```bash
-   npx wrangler secret put RESERVATIONS_HMAC_SECRET
-   ```
-   ```bash
-   npx wrangler secret put IP_HASH_SALT
-   ```
-3. Essai local complet (site + API, sur http://localhost:8787) :
-   ```bash
-   npm run dev
-   ```
-   Vérifier http://localhost:8787/api/health : `"sheet": true`. Puis l'agenda : les places viennent de la feuille.
-4. Première publication sur l'adresse gratuite `centre-cfs.<compte>.workers.dev` (**à faire seulement avec ton accord**) :
-   ```bash
-   npm run deploy
-   ```
-5. Domaine `centrecfs.be` (le jour de la mise en ligne, phase 11) : ajouter le domaine à Cloudflare (changement des
-   serveurs DNS chez le registraire), puis *Workers › centre-cfs › Settings › Domains & Routes › Add › Custom domain*.
-   Activer *Crawler Hints* et *Web Analytics* (sans cookie).
+1. Compte Cloudflare gratuit (dash.cloudflare.com). Noter l'**Account ID** (colonne de droite de la page d'accueil).
+2. *My Profile › API Tokens › Create Token* : modèle **« Edit Cloudflare Workers »** → copier le jeton.
+3. Sur GitHub, dépôt Centre-CFS › *Settings › Secrets and variables › Actions* :
+   - onglet **Secrets** : `CLOUDFLARE_API_TOKEN` (le jeton) et `CLOUDFLARE_ACCOUNT_ID` ;
+   - onglet **Variables** : `SITE_URL` = `https://centre-cfs.<votre-sous-domaine>.workers.dev` (tant que le domaine
+     centrecfs.be n'est pas branché sur Cloudflare).
+4. Onglet *Actions* › **« Publier sur Cloudflare »** › *Run workflow* (**à faire seulement avec ton accord : c'est une
+   publication**). Le site et l'API sont en ligne sur l'adresse `workers.dev` (non indexée par Google).
+5. Secrets du Worker : *Workers & Pages › centre-cfs › Settings › Variables and Secrets › Add* (type **Secret**) :
+   `RESERVATIONS_API_URL` (adresse /exec de l'étape 1), `RESERVATIONS_HMAC_SECRET` (même valeur que `HMAC_SECRET` de la
+   feuille), `IP_HASH_SALT`, puis à l'étape 3 `EMAILJS_PRIVATE_KEY`. Variables simples (type **Text**) :
+   `EMAILJS_PUBLIC_KEY`, `EMAILJS_SERVICE_ID`, `EMAILJS_TEMPLATE_CLIENT`, `EMAILJS_TEMPLATE_EQUIPE`. Elles sont gardées
+   à chaque nouvelle publication (`keep_vars`).
+6. ✅ Ouvrir `https://centre-cfs.<…>.workers.dev/api/health` : `"sheet": true`, `"email": true`, `"chatbot": "workers-ai"`.
+   Puis l'agenda (places en direct), un formulaire de contact (ligne dans la feuille + e-mail dans info@) et le chatbot.
+7. Domaine `centrecfs.be` (le jour de la mise en ligne, phase 11) : ajouter le domaine à Cloudflare (changement des
+   serveurs DNS chez le registraire), puis *Workers › centre-cfs › Settings › Domains & Routes › Add › Custom domain* ;
+   mettre la variable GitHub `SITE_URL` à `https://centrecfs.be` et republier. Activer *Crawler Hints* et *Web Analytics*.
 
-Le site statique est servi directement par Cloudflare (non compté comme requête Worker) ; seul `/api/*` exécute le Worker.
-`_headers` (sécurité, cache) et `_redirects` (anciennes adresses WordPress) sont générés par `site/build.py`.
+Avec Node (facultatif) : `npm ci`, `npx wrangler login`, `npm run dev` (essai local sur http://localhost:8787),
+`npx wrangler secret put NOM` pour les secrets, `npm run deploy` pour publier.
+
+L'IA du chatbot (Workers AI, modèle gratuit `@cf/google/gemma-4-26b-a4b-it`) est active dès la publication, sans clé :
+voir l'étape 7. Le site statique est servi directement par Cloudflare ; seul `/api/*` exécute le Worker.
 
 ## 3. EmailJS (tous les e-mails, côté serveur uniquement)
 
@@ -135,10 +133,12 @@ npx wrangler secret put MOLLIE_API_KEY
 (clé `test_…`), puis `ONLINE_PAYMENT_ENABLED = "1"` dans `wrangler.toml` et pour la construction du site.
 Les remboursements se font dans le tableau de bord Mollie ; la feuille signale « Remboursement à faire ».
 
-## 7. IA du chatbot (facultatif)
+## 7. IA du chatbot
 
-Par défaut `CHATBOT_PROVIDER = "local"` : le chatbot répond sans aucun service externe. Options et coûts :
-`docs/README-ASSISTANT.md`.
+Active par défaut avec le Worker : Workers AI (allocation gratuite de 10 000 « neurons » par jour, environ 250 réponses
+de l'IA ; le cœur local répond aux questions simples sans l'appeler). Rien à créer. Pour la couper : `CHATBOT_PROVIDER`
+= `local` dans `wrangler.toml`. Pour une meilleure qualité, payante à l'usage : `CHATBOT_PROVIDER` = `claude`, secret
+`ANTHROPIC_API_KEY` (console.anthropic.com, **avec une limite de dépenses**). Détails : `docs/README-ASSISTANT.md`.
 
 ## 8. Variables de construction du site
 

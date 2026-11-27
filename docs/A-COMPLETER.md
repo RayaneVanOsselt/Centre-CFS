@@ -74,3 +74,8 @@ dans `docs/RAPPORT-IMPORT.md` (régénéré à chaque construction).
 - [ ] Générer la version PDF de `docs/GUIDE-FEUILLE.md` pour l'équipe (*Imprimer › Enregistrer en PDF* depuis GitHub)
 - [ ] Taux de TVA (`VAT_RATE`, 21 % par défaut) et mentions des e-mails de réservation : **à valider par le comptable**
 - [ ] Durée de conservation des demandes (`REQUEST_RETENTION_MONTHS`) à choisir et à reporter dans la confidentialité
+
+## 8. Tarifs
+
+- [x] Grille de `docs/TARIFS.md` validée par Rayane le 27/11/2026
+- [ ] Durées encore inconnues (« à préciser » dans `docs/TARIFS.md`) : à fournir par le Centre CFS

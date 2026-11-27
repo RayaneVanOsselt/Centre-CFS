@@ -143,7 +143,8 @@ function indexOf(kb) {
  * Entrées classées par pertinence.
  * @param {any} kb
  * @param {string} text
- * @param {{ slug?: string | null, types?: string[], limit?: number }} [opts]
+ * @param {{ slug?: string | null, types?: string[], limit?: number, prefix?: boolean }} [opts]  prefix : mots commencés
+ *   (recherche pendant la frappe : « chari » trouve « chariot »), poids réduit de moitié
  * @returns {{ entry: any, score: number }[]}
  */
 export function search(kb, text, opts = {}) {
@@ -157,7 +158,8 @@ export function search(kb, text, opts = {}) {
     for (const term of q) {
       const idf = Math.log(1 + (n - (df.get(term) || 0) + 0.5) / ((df.get(term) || 0) + 0.5));
       for (const [toks, w] of d.fields) {
-        const tf = toks.filter((x) => x === term).length;
+        let tf = toks.filter((x) => x === term).length;
+        if (!tf && opts.prefix && term.length >= 3) tf = toks.filter((x) => x.startsWith(term)).length * 0.5;
         if (tf) score += w * idf * ((tf * 2.2) / (tf + 1.2 * (0.25 + 0.75 * Math.min(toks.length, 200) / 60)));
       }
     }

@@ -11,6 +11,8 @@
  *    D-009), modèle claude-haiku-5-5 nommé par la mission, sortie JSON contrainte par un schéma, ANTHROPIC_API_KEY secret.
  */
 
+import { amounts } from "../../../site/src/assets/js/assistant/validation.js";
+
 export const SYSTEM_PROMPT = `Tu es l'assistant du site du Centre CFS, centre de formations à la sécurité au travail en Belgique
 (Engis et Charleroi, et en entreprise). Tu aides les visiteurs à trouver une formation, comprendre
 ses modalités et réserver.
@@ -72,9 +74,8 @@ export function validateAnswer(a, input) {
   const okUrl = (u) => typeof u === "string" && allowed.has(u);
   // Montants : chaque « 250 € » cité doit exister dans les faits fournis
   const prices = new Set(input.context.map((c) => c.facts && c.facts.priceHtva).filter((p) => p != null).map(String));
-  for (const m of a.message.matchAll(/(\d+(?:[.,]\d+)?)\s?(?:€|EUR)|€\s?(\d+(?:[.,]\d+)?)/g)) {
-    const n = String(Number((m[1] || m[2]).replace(",", ".")));
-    if (!prices.has(n)) return null;
+  for (const n of amounts(a.message.replace(/\bEUR\b/g, "€"))) {
+    if (!prices.has(String(n))) return null;
   }
   return {
     message: a.message.trim(),
@@ -82,6 +83,15 @@ export function validateAnswer(a, input) {
     suggestions: (Array.isArray(a.suggestions) ? a.suggestions : []).filter((s) => typeof s === "string" && s.length < 120).slice(0, 3),
     sources: (Array.isArray(a.sources) ? a.sources : []).filter((s) => s && okUrl(s.url)).slice(0, 4),
   };
+}
+
+/** Premier objet JSON d'un texte (les petits modèles ajoutent parfois des balises ``` ou une phrase autour). */
+export function extractJson(text) {
+  const t = text.replace(/^```(?:json)?\s*|\s*```$/g, "").trim();
+  try { return JSON.parse(t); } catch { /* on cherche l'objet */ }
+  const start = t.indexOf("{"), end = t.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+  try { return JSON.parse(t.slice(start, end + 1)); } catch { return null; }
 }
 
 /**
@@ -112,12 +122,17 @@ export async function reformulate(env, input, fetchImpl = fetch) {
       const text = (d.content || []).find((b) => b.type === "text");
       raw = text ? text.text : null;
     } else if (env.CHATBOT_PROVIDER === "workers-ai" && env.AI && env.CHATBOT_MODEL) {
-      const r = await env.AI.run(env.CHATBOT_MODEL, { messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: user }], max_tokens: 900 });
-      raw = r && (typeof r.response === "string" ? r.response : JSON.stringify(r.response || ""));
+      const r = await Promise.race([
+        env.AI.run(env.CHATBOT_MODEL, { messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: user }], max_tokens: 900, temperature: 0.2 }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 12000)),
+      ]);
+      // Selon le modèle : { response: "…" } ou format OpenAI { choices: [{ message: { content } }] }
+      const res = /** @type {any} */ (r);
+      raw = typeof res?.response === "string" ? res.response : res?.response && typeof res.response === "object" ? JSON.stringify(res.response)
+        : res?.choices?.[0]?.message?.content || null;
     }
     if (!raw) return null;
-    const json = JSON.parse(String(raw).replace(/^```(?:json)?\s*|\s*```$/g, ""));
-    return validateAnswer(json, input);
+    return validateAnswer(extractJson(String(raw)), input);
   } catch {
     return null;
   } finally {

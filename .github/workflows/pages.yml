@@ -47,6 +47,8 @@ jobs:
           FORM_ENDPOINT: ${{ vars.FORM_ENDPOINT }}
           # Facultatif : liste publique des sessions avec places en direct. Vide = client/sessions.csv.
           SESSIONS_PUBLIC_URL: ${{ vars.SESSIONS_PUBLIC_URL }}
+          # Assistant du site (cœur local, sans IA ni serveur sur GitHub Pages). 0 pour le masquer.
+          CHATBOT_ENABLED: ${{ vars.CHATBOT_ENABLED || '1' }}
           TZ: Europe/Brussels
         run: python3 site/build.py
 

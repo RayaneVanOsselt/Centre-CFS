@@ -247,3 +247,17 @@ test("POST /api/chat : désactivé par défaut ; avec Claude, extraits tirés de
     globalThis.fetch = saved;
   }
 });
+
+test("IA Workers AI : réponse entourée de texte ou au format OpenAI → JSON extrait puis revalidé", async () => {
+  const input = { question: "Prix du VCA Base ?", lang: "fr", context: CTX, sessions: [] };
+  const good = { message: "VCA Base : 250 € HTVA.", cards: [], suggestions: [], sources: [] };
+  const env = (run) => ({ CHATBOT_PROVIDER: "workers-ai", CHATBOT_MODEL: "@cf/google/gemma-4-26b-a4b-it", AI: { run } });
+  const a = await reformulate(env(async () => ({ response: "Voici la réponse :\n```json\n" + JSON.stringify(good) + "\n```" })), input);
+  assert.equal(a && a.message, good.message);
+  const b = await reformulate(env(async () => ({ choices: [{ message: { content: JSON.stringify(good) } }] })), input);
+  assert.equal(b && b.message, good.message);
+  const c = await reformulate(env(async () => ({ response: JSON.stringify({ ...good, message: "VCA Base : 99 € HTVA." }) })), input);
+  assert.equal(c, null, "montant absent de la base : réponse rejetée, repli local");
+  const d = await reformulate(env(async () => { throw new Error("5035"); }), input);
+  assert.equal(d, null, "modèle indisponible : repli local");
+});

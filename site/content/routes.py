@@ -39,6 +39,7 @@ PAGES = {
     "langues": {"fr": "/langues/", "nl": "/talen/", "en": "/languages/"},
     "accessibilite": {"fr": "/accessibilite/", "nl": "/toegankelijkheid/", "en": "/accessibility/"},
     "cookies": {"fr": "/cookies/", "nl": "/cookies/", "en": "/cookies/"},
+    "recherche": {"fr": "/recherche/", "nl": "/zoeken/", "en": "/search/"},
 }
 
 # Domaines : slug FR → slug traduit

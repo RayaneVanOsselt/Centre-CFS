@@ -318,6 +318,7 @@ def header_html(lang, active, alternates):
 <a class="logo" href="{R.page("home", lang)}" aria-label="{E(t(lang, "nav.home"))}">{LOGO_HEADER}</a>
 {nav_html(lang, active)}
 <div class="header-actions">
+<a class="icon-link search-btn" href="{R.page("recherche", lang)}" data-search-open aria-haspopup="dialog" aria-label="{E(t(lang, "search.open"))}" title="{E(t(lang, "search.open"))} (/)">{icon("search")}</a>
 {lang_switch(lang, alternates)}
 {account_link}<a class="tel-link" href="{tel()}" aria-label="{E(t(lang, "nav.call", phone=C.SITE["phone_display"]))}">{icon("phone")}<span>{C.SITE["phone_display"]}</span></a>
 <a class="btn btn--contour btn--petit header-quote" href="{R.page("contact", lang)}?type=devis">{E(t(lang, "nav.quote"))}</a>
@@ -850,7 +851,10 @@ def build_formation(slug, lang):
     dl = "".join(f'<div>{icon(i)}<dt>{E(k)}</dt><dd>{E(v)}</dd></div>' for i, k, v in facts)
     if f["prix"]:
         note = f'<small class="prix-note">{E(f["prix_note"])}</small>' if f.get("prix_note") else ""
-        prix = f'<div class="facts-price"><span class="facts-label">{E(t(lang, "common.price_per"))}</span><span class="prix">{E(money(f["prix"], lang))}</span> <small>{E(t(lang, "common.htva"))}</small>{note}</div>'
+        incl = round(round(f["prix"] * 100) * (1 + PUBLIC["vatRate"])) / 100  # même arrondi que la feuille et pricing.js
+        tvac = f'<small class="prix-note">{E(t(lang, "common.price_incl", price=money(incl, lang)))}</small>'
+        prix = (f'<div class="facts-price"><span class="facts-label">{E(t(lang, "common.price_per"))}</span><span class="prix">{E(money(f["prix"], lang))}</span> '
+                f'<small>{E(t(lang, "common.htva"))}</small>{tvac}{note}<small class="prix-note">{E(t(lang, "common.intra_quote"))}</small></div>')
     else:
         prix = f'<div class="facts-price"><span class="facts-label">{E(t(lang, "common.price"))}</span><span class="prix prix--quote">{E(t(lang, "common.quote"))}</span><small class="prix-note">{E(t(lang, "common.price_quote_long"))}</small></div>'
     book = f'<a class="btn btn--signal btn--bloc" href="{R.page("inscription", lang)}?formation={slug}">{E(t(lang, "cta.book"))}</a>'
@@ -938,7 +942,7 @@ def build_domain(slug, lang):
     head = (f'<div class="page-head page-head--domain"><div class="page-head-bg" aria-hidden="true"></div><div class="wrap">{crumbs_html(lang, crumbs)}'
             f'<div class="domain-hero">{dsign(slug, "sign sign--xl", d["name"])}<div><h1>{E(p["title"].format(name=d["long"]))}</h1><p class="lead">{E(d["intro"])}</p></div></div></div></div>')
     body = f'''{head}
-<section class="section"><div class="wrap">{picture(IMG.DOMAIN_IMAGE.get(slug), lang, sizes="(min-width: 1240px) 1180px, 100vw", cls="media media--band")}<ul class="f-list">{cards}</ul></div></section>
+<section class="section" aria-labelledby="t-c"><div class="wrap"><h2 class="sr-only" id="t-c">{E(t(lang, "nav.formations"))} : {E(d["name"])}</h2>{picture(IMG.DOMAIN_IMAGE.get(slug), lang, sizes="(min-width: 1240px) 1180px, 100vw", cls="media media--band")}<ul class="f-list">{cards}</ul></div></section>
 <section class="section section--papier" aria-labelledby="t-s"><div class="wrap">
 <div class="section-head section-head--split"><h2 id="t-s">{E(t(lang, "sess.next"))}</h2><a class="lien-fleche" href="{R.page("agenda", lang)}">{E(t(lang, "cta.agenda"))}</a></div>
 {sessions_block(lang, f'data-domain="{slug}"', T[lang].PAGES["formation"]["sessions_empty"], limit=6)}
@@ -1322,6 +1326,25 @@ def build_plan(lang):
     page(lang, R.page("plan", lang), p["meta_title"], p["meta_desc"], body, alternates=all_alts("plan"), crumbs=crumbs, prio="0.2")
 
 
+def build_search(lang):
+    """Page de résultats de recherche (non indexée). Formulaire GET ?q=… ; résultats calculés dans le navigateur
+    à partir de la base de connaissances du site (site/src/assets/js/search/search.js)."""
+    title = t(lang, "search.title")
+    crumbs = [home_crumb(lang), (title, R.page("recherche", lang))]
+    body = f'''{page_head(lang, crumbs, t(lang, "search.label"), None, narrow=True)}
+<section class="section search-page" data-search-page><div class="wrap-narrow">
+<form class="search-form" role="search" action="{R.page("recherche", lang)}" method="get">
+<label class="sr-only" for="search-q">{E(t(lang, "search.label"))}</label>
+<input id="search-q" name="q" type="search" autocomplete="off" spellcheck="false" maxlength="120" placeholder="{E(t(lang, "search.placeholder"))}">
+<button class="btn btn--bleu" type="submit">{icon("search")} {E(t(lang, "search.submit"))}</button></form>
+<p class="search-hint muted">{E(t(lang, "search.hint"))}</p>
+<p class="search-count" data-search-count role="status" aria-live="polite"></p>
+<ol class="search-results" data-search-results></ol>
+<noscript><p class="notice">{E(t(lang, "search.noscript"))} <a href="{R.page("plan", lang)}">{E(P(lang, "plan", "title"))}</a></p></noscript>
+</div></section>'''
+    page(lang, R.page("recherche", lang), title, t(lang, "search.meta_desc"), body, alternates=all_alts("recherche"), robots="noindex, follow", sitemap=False)
+
+
 def build_404(lang):
     p = P(lang, "404")
     body = f'''<section class="section err-404"><div class="wrap-narrow center">
@@ -1476,7 +1499,7 @@ def build_account_pages(lang):
 # ───────────────────────────── fichiers techniques
 DATA_V = {}
 KB_V = {}  # empreintes des bases de connaissances de l'assistant (cache)
-JS_KEYS = ("lang.", "nav.", "common.", "cta.", "loc.", "sess.", "availability.", "form.", "reg.", "pay.", "acc.", "chat.", "intro.")
+JS_KEYS = ("lang.", "nav.", "common.", "cta.", "loc.", "sess.", "availability.", "search.", "form.", "reg.", "pay.", "acc.", "chat.", "intro.")
 
 
 def site_data(lang):
@@ -1501,6 +1524,9 @@ def site_data(lang):
     cfg_pub = {k: v for k, v in PUBLIC.items() if k not in ("supabaseUrl", "supabaseKey") or PUBLIC["accounts"]}
     cfg_pub["dev"] = DEV
     cfg_pub["hero3d"] = BASE + asset("/assets/js/hero-3d.js")  # module chargé à la demande par main.js (accueil)
+    # Recherche du site : module et base de connaissances (même base que l'assistant) chargés à la demande par main.js
+    cfg_pub["search"] = {"module": BASE + asset("/assets/js/search/search.js"), "kb": BASE + f"/assets/data/kb.{lang}.json?v={KB_V.get(lang, '')}",
+                         "page": BASE + R.page("recherche", lang)}
     if PUBLIC["chatbot"]:
         # Assistant : moteur, base de connaissances et panneau chargés à la demande par launcher.js
         cfg_pub["assistant"] = {
@@ -1631,6 +1657,17 @@ def write_static():
             fh.write("User-agent: *\nDisallow: /\n")
         else:
             fh.write(f"User-agent: *\nAllow: /\nDisallow: {BASE}/api/\n{disallow}\nSitemap: {CANON}/sitemap.xml\n")
+    # llms.txt : résumé du site et liens vers les pages clés pour les assistants IA (effet non garanti, docs/SEO.md)
+    tx = T["fr"]
+    lines = [f"# {C.SITE['name']}", "", f"> {tx.SITE['legal_name']}. Formations à la sécurité au travail à Engis (Liège), Charleroi et en entreprise, "
+             "en français et sur demande dans 10 autres langues. Prix HTVA par participant ; formations en entreprise sur devis.", "",
+             f"Contact : {C.SITE['phone_display']} · {C.SITE['email']} · Rue de la Paix 12, 4480 Engis", "", "## Formations"]
+    lines += [f"- [{tx.FORMATIONS[f['slug']]['full']}]({CANON}{R.formation(f['slug'], 'fr')})" + (f" : {fmt_num(PRICE[f['slug']], 'fr').replace(NNBSP, ' ')} € HTVA" if PRICE.get(f['slug']) else "")
+              for f in C.FORMATIONS]
+    lines += ["", "## Pages utiles"] + [f"- [{P('fr', k)['title']}]({CANON}{R.page(k, 'fr')})" for k in ("agenda", "entreprises", "salles", "langues", "faq", "contact")]
+    lines += ["", "## Autres langues", f"- [Nederlands]({CANON}{R.page('home', 'nl')})", f"- [English]({CANON}{R.page('home', 'en')})", ""]
+    with open(os.path.join(OUT, "llms.txt"), "w", encoding="utf-8") as fh:
+        fh.write("\n".join(lines))
     with open(os.path.join(OUT, "site.webmanifest"), "w") as fh:
         json.dump({"name": "Centre CFS", "short_name": "Centre CFS", "lang": "fr-BE", "start_url": BASE + "/", "scope": BASE + "/", "display": "standalone",
                    "background_color": "#FFFFFF", "theme_color": "#0D4A8C",
@@ -1711,6 +1748,7 @@ def main():
         build_legal(lang)
         build_plan(lang)
         build_404(lang)
+        build_search(lang)
         if PUBLIC["onlinePayment"]:
             build_paiement(lang)
         if PUBLIC["accounts"]:

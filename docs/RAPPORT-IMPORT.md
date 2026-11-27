@@ -4,7 +4,7 @@ Généré par `python3 site/tools/import_client.py`. Les fichiers de `client/` n
 
 | Fichier | Résultat |
 |---|---|
-| `formations.csv` | 22 formations, 4 avec un prix HTVA |
+| `formations.csv` | 22 formations, 22 avec un prix HTVA |
 | `sessions.csv` | 6 session(s) à venir, 0 avec une capacité |
 | `salles.csv` | 3 salle(s) |
 
@@ -66,5 +66,6 @@ Aucune.
 
 ## Informations
 
+- 18 tarif(s) PROPOSÉ(S) appliqué(s) depuis site/content/tarifs.json (à valider par le Centre CFS)
 - sessions.csv ligne 2 : session passée (2026-11-26), ignorée
 - 6 session(s) publiée(s) dans le fichier de secours sessions-data.js
