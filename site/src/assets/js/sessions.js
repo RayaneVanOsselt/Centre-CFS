@@ -77,7 +77,7 @@
   /** Lecture de la liste en direct ; null si elle ne répond pas correctement. */
   function fetchLive() {
     var ctrl = typeof AbortController === "function" ? new AbortController() : null;
-    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 6000) : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, cfg.direct ? 12000 : 6000) : null;  // Google : démarrage plus lent
     return root.fetch(cfg.sessionsUrl, { headers: { Accept: "application/json" }, credentials: "omit", signal: ctrl ? ctrl.signal : undefined })
       .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status)); })
       .then(function (d) {

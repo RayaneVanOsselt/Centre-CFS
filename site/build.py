@@ -92,8 +92,19 @@ BASE = base_path(cfg("BASE_PATH"))
 # statique (GitHub Pages) ne peut pas les faire tourner. Le code reste en place ; chaque option s'active par une variable.
 # WORKER_API=1 : le site est servi par le Worker Cloudflare (même domaine) et utilise son API /api/*.
 API = cfg("WORKER_API", "0") == "1"
+# « Tout chez Google » (DECISIONS.md D-018) : le site parle directement à l'application Web de la feuille Google
+# (formulaires, agenda en direct, réservations sur facture), sans Worker. Adresse publique « …/exec » du déploiement.
+GOOGLE = cfg("GOOGLE_SCRIPT_URL", "").strip()
+if GOOGLE and API:
+    sys.exit("GOOGLE_SCRIPT_URL et WORKER_API=1 s'excluent : choisir l'accès direct à la feuille OU le Worker")
+if GOOGLE and not (re.match(r"^https://script\.google\.com/macros/s/[A-Za-z0-9_-]{20,200}/exec$", GOOGLE)
+                   or (DEV and re.match(r"^/[A-Za-z0-9/_-]+$", GOOGLE))):
+    sys.exit(f"Configuration invalide : GOOGLE_SCRIPT_URL = {GOOGLE} (adresse https://script.google.com/macros/s/…/exec)")
 PUBLIC = {
-    "api": API,
+    # Envoi réel des demandes (Worker ou feuille Google en direct) ; sinon le formulaire prépare un e-mail
+    "api": API or bool(GOOGLE),
+    # Accès direct à la feuille : corps JSON envoyé en text/plain (requête « simple », sans pré-vérification CORS)
+    "direct": bool(GOOGLE),
     "siteUrl": cfg("SITE_URL", "http://localhost:8787" if DEV else C.SITE["url"]).rstrip("/"),
     "basePath": BASE,
     "supabaseUrl": cfg("SUPABASE_URL"),
@@ -104,11 +115,11 @@ PUBLIC = {
     "accounts": cfg("ACCOUNTS_ENABLED", "0") == "1",
     "onlinePayment": cfg("ONLINE_PAYMENT_ENABLED", "0") == "1",
     # Adresse qui reçoit les formulaires en JSON (Worker, Formspree…). Vide : le formulaire prépare un e-mail.
-    "formEndpoint": cfg("FORM_ENDPOINT", "/api/contact" if API else ""),
+    "formEndpoint": cfg("FORM_ENDPOINT", "/api/contact" if API else f"{GOOGLE}?route=contact" if GOOGLE else ""),
     # Liste publique des sessions avec les places en direct (JSON { status: "ok", sessions: [...] }). Vide : fichier de secours.
-    "sessionsUrl": cfg("SESSIONS_PUBLIC_URL", "/api/sessions" if API else ""),
+    "sessionsUrl": cfg("SESSIONS_PUBLIC_URL", "/api/sessions" if API else f"{GOOGLE}?route=sessions" if GOOGLE else ""),
     # Réservations (Worker) : places vérifiées sous verrou par la feuille, montant calculé par la feuille
-    "registrationEndpoint": "/api/registrations" if API else "",
+    "registrationEndpoint": "/api/registrations" if API else f"{GOOGLE}?route=registration" if GOOGLE else "",
     "email": C.SITE["email"],
     # Destinataire des demandes préparées par e-mail (mode sans FORM_ENDPOINT). Par défaut : l'adresse du centre.
     "formEmail": cfg("FORM_EMAIL", C.SITE["email"]),
@@ -1138,7 +1149,7 @@ def field(lang, fid, label, typ="text", required=False, auto="", extra="", error
 
 
 def nojs_form(lang):
-    """Avec le Worker, le formulaire fonctionne aussi sans JavaScript : envoi classique vers /api/contact, qui répond
+    """Avec le Worker ou la feuille en direct, le formulaire fonctionne aussi sans JavaScript : envoi classique, réponse
     par une page de confirmation dans la bonne langue. La langue voyage dans un champ caché ajouté après l'ouverture."""
     if not PUBLIC["api"]:
         return ""
@@ -1610,10 +1621,14 @@ def csp(meta=False):
     if PUBLIC["accounts"] and PUBLIC["supabaseUrl"]:
         connect += [PUBLIC["supabaseUrl"], PUBLIC["supabaseUrl"].replace("https://", "wss://").replace("http://", "ws://")]
     connect += [o for o in (origin(PUBLIC["formEndpoint"]), origin(PUBLIC["sessionsUrl"])) if o and o not in connect]
+    # Accès direct à la feuille : l'application Web Google répond par une redirection vers script.googleusercontent.com
+    google = [o for o in ("https://script.google.com", "https://script.googleusercontent.com") if GOOGLE.startswith("https://")]
+    connect += [o for o in google if o not in connect]
+    forms = " ".join(["'self'"] + google)
     turnstile = bool(PUBLIC["turnstileSiteKey"])
     cf = " https://challenges.cloudflare.com" if turnstile else ""
     return (f"default-src 'self'; script-src 'self'{cf}; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; "
-            f"connect-src {' '.join(connect)}; " + (f"frame-src{cf}; " if turnstile else "") + "form-action 'self'; "
+            f"connect-src {' '.join(connect)}; " + (f"frame-src{cf}; " if turnstile else "") + f"form-action {forms}; "
             + ("" if meta else "frame-ancestors 'none'; ")
             + "base-uri 'self'; object-src 'none'; manifest-src 'self'" + ("" if DEV else "; upgrade-insecure-requests"))
 
