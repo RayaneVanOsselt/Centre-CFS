@@ -24,7 +24,8 @@
       return '<a class="btn btn--contour ' + cls + '" href="' + esc(trainingUrl(s)) + '">' + esc(t("sess.view")) + "</a>";
     }
     var firm = s.live && cfg.onlinePayment;
-    return '<a class="btn btn--signal ' + cls + '" href="' + esc(S.bookUrl(s)) + '">' + esc(t(firm ? "sess.book" : "sess.request")) + "</a>";
+    // Bouton bleu : le seul bouton jaune de l'écran reste l'action principale de la page (charte, un seul jaune).
+    return '<a class="btn btn--bleu ' + cls + '" href="' + esc(S.bookUrl(s)) + '">' + esc(t(firm ? "sess.book" : "sess.request")) + "</a>";
   }
 
   function pill(s) {

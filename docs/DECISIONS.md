@@ -47,3 +47,21 @@ Une entrée par décision : contexte, options, choix, conséquences. Statut : **
 - **Choix proposé** : ne pas refaire la restructuration ; prendre comme **rendu de référence le site publié le 26/11/2026**.
   Les captures avant/après de Playwright seront mises en place avec la CI (phase 4), Node n'étant pas installé sur le poste.
 - **Conséquences** : la phase 0 livre l'analyse, le plan, la liste à compléter, `CLAUDE.md` et les tests de l'import.
+
+## D-006 : photos libres de droits et pipeline d'images (validée, 27/11/2026)
+
+- **Contexte** : la mission demande des photos libres (Pexels, Unsplash, Pixabay), traitées en AVIF et WebP, inscrites à
+  un registre. Rayane a autorisé le téléchargement.
+- **Choix** : 15 photos Pexels, choisies sur planches contact (équipements de protection corrects, aucune marque lisible,
+  contexte européen) ; un registre unique `site/content/images.py` alimente les dérivés (`site/tools/optimize_images.py`,
+  Pillow), les balises `<picture>` et `docs/image-sources.md`. Recadrage 3:2 sur un point focal au moment de la
+  génération : aucune règle CSS par image (CSP stricte, pas d'attribut `style`).
+- **Conséquences** : Pillow n'est nécessaire que pour ajouter ou remplacer une photo. Les dérivés sont commités.
+
+## D-007 : minification (validée, 27/11/2026)
+
+- **Contexte** : la mission suppose `rcssmin` et `rjsmin` déjà présents ; ils ne l'étaient pas.
+- **Choix** : CSS minifiée par `rcssmin` si le paquet est installé (la CI l'installe) ; JavaScript publié tel quel :
+  `rjsmin` ne gère pas toute la syntaxe moderne (gabarits, chaînage optionnel) et le JavaScript initial reste sous le
+  budget de 60 Ko compressés.
+- **Conséquences** : en local sans `rcssmin`, le site est identique, simplement moins compact.

@@ -178,24 +178,6 @@
     }, { passive: true });
   }
 
-  /* ---------- Révélation au défilement (jamais sans JavaScript, jamais si « réduire les animations ») ---------- */
-  if (!reduceMotion && "IntersectionObserver" in window) {
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach((en) => {
-        if (!en.isIntersecting) return;
-        en.target.classList.add("is-in");
-        en.target.classList.remove("is-pending");
-        io.unobserve(en.target);
-      });
-    }, { rootMargin: "0px 0px -8% 0px" });
-    const fold = window.innerHeight;
-    $$(".reveal").forEach((el) => {
-      if (el.getBoundingClientRect().top < fold) return; // déjà visible : rien à animer
-      el.classList.add("is-pending");
-      io.observe(el);
-    });
-  }
-
   /* ---------- Année du pied de page ---------- */
   $$("[data-year]").forEach((el) => { el.textContent = String(new Date().getFullYear()); });
 })();

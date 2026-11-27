@@ -5,6 +5,9 @@ réservable en ligne) viennent de client/formations.csv, lu par site/tools/impor
 contient AUCUNE. Rien n'est inventé : une donnée absente reste vide (« Sur devis », « Nous consulter »).
 """
 
+# Date de dernière relecture du contenu des fiches (affichée « Mis à jour le … » ; à changer à chaque mise à jour)
+CONTENT_UPDATED = "2026-11-27"
+
 SITE = {
     "name": "Centre CFS",
     "url": "https://centrecfs.be",

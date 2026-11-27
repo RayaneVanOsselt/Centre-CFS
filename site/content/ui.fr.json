@@ -46,6 +46,9 @@
   "footer.faq": "Questions fréquentes",
   "footer.linkedin": "Centre CFS sur LinkedIn",
   "footer.slogan": "La sécurité enseignée par ceux qui la pratiquent.",
+  "footer.languages": "Langues de formation",
+  "footer.accessibility": "Accessibilité",
+  "footer.cookies": "Cookies",
 
   "common.htva": "HTVA",
   "common.quote": "Sur devis",
@@ -72,6 +75,8 @@
   "common.results": "{n} résultats",
   "common.yes": "Oui",
   "common.no": "Non",
+  "common.in_brief": "En bref",
+  "common.updated": "Mis à jour le {date}",
 
   "cta.book": "Réserver une place",
   "cta.quote": "Demander un devis",

@@ -36,6 +36,9 @@ PAGES = {
     "motdepasse": {"fr": "/compte/mot-de-passe/", "nl": "/account/wachtwoord/", "en": "/account/password/"},
     "confirmation": {"fr": "/compte/confirmation/", "nl": "/account/bevestiging/", "en": "/account/confirm/"},
     "admin": {"fr": "/compte/equipe/", "nl": "/account/team/", "en": "/account/team/"},
+    "langues": {"fr": "/langues/", "nl": "/talen/", "en": "/languages/"},
+    "accessibilite": {"fr": "/accessibilite/", "nl": "/toegankelijkheid/", "en": "/accessibility/"},
+    "cookies": {"fr": "/cookies/", "nl": "/cookies/", "en": "/cookies/"},
 }
 
 # Domaines : slug FR → slug traduit

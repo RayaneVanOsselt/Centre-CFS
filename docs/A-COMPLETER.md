@@ -38,7 +38,9 @@ dans `docs/RAPPORT-IMPORT.md` (régénéré à chaque construction).
 
 - [ ] `client/cgv.md` : conditions générales validées (sinon le brouillon « à valider juridiquement » reste affiché)
 - [ ] `client/ancien-logo.png` : logo historique (à conserver dans le dossier d'identité)
-- [ ] `client/photos/` : salles, exercices, formateurs, avec les accords écrits (`accords-photos.csv`)
+- [ ] `client/photos/` : salles, exercices, formateurs, avec les accords écrits (`accords-photos.csv`). En attendant :
+      15 photos libres (registre `docs/image-sources.md`) ; aucune photo pour l'échafaudage, l'A.R.I. et les salles
+- [ ] Relire les 15 photos libres retenues (`docs/image-sources.md`) et confirmer qu'elles conviennent
 - [ ] `client/logos-partenaires/` : uniquement avec autorisation écrite
 - [ ] `client/temoignages.csv` : uniquement avec accord écrit (sinon la section n'existe pas)
 - [ ] `client/traductions-relues/` : relecture des textes néerlandais et anglais par un natif
@@ -58,3 +60,8 @@ dans `docs/RAPPORT-IMPORT.md` (régénéré à chaque construction).
 - [ ] Comptes à créer au moment indiqué par `docs/PLAN.md` : Cloudflare, Supabase (région UE), EmailJS, Mollie (au nom du
       Centre CFS), Turnstile ; jamais de clé dans le code ni dans la conversation
 - [ ] Remettre `FORM_EMAIL` sur `info@centrecfs.be` quand la boîte du centre est prête (variable GitHub, voir `README.md`)
+
+## 6. Pages en attente de validation
+
+- [ ] **Financement** : page prévue par la mission (section 9.5), à rédiger seulement avec les dispositifs que le Centre CFS
+      confirme (Cefora, congé-éducation payé…), sources officielles à l'appui ; la fin des chèques-formation est déjà dans la FAQ
