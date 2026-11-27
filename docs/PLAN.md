@@ -15,8 +15,8 @@ suivante »). Les cases indiquent ce qui existe déjà dans le dépôt au 27/11/
 | **7** Comptes ✅ | Section 11 + e-mails d'authentification | Gabarits des pages compte dans `build.py` | Tout | Projet Supabase (région UE) |
 | **8** Paiement ✅ | Section 12 | Statuts et confirmation dans le moteur, calcul des montants | Mollie via le Worker, page de retour, CGV | Compte Mollie du Centre CFS (mode test) ; avis du comptable sur la TVA |
 | **9** Chatbot ✅ | Section 8 | — | Tout (base générée, recherche, réponses, 60 questions) | Choix du fournisseur IA (par défaut : aucun, cœur local) |
-| **10** SEO, rappels, tâches | Section 10 | Données structurées de base, rappels J-2 et sauvegardes dans le moteur | `check_seo.py`, docs SEO, guides en brouillon, tâches planifiées testées | Validation des guides par le Centre CFS |
-| **11** Vérification et mise en production | Audit complet, `RAPPORT-FINAL.md`, mise en ligne | — | Tout | Accord explicite pour chaque étape publique |
+| **10** SEO, rappels, tâches ✅ | Section 10 | Données structurées de base, rappels J-2 et sauvegardes dans le moteur | `check_seo.py`, docs SEO, guides en brouillon, tâches planifiées testées | Validation des guides par le Centre CFS |
+| **11** Vérification ✅ et mise en production (sur accord) | Audit complet, `RAPPORT-FINAL.md`, mise en ligne | — | Tout | Accord explicite pour chaque étape publique |
 
 ## Ordre conseillé et dépendances
 

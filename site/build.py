@@ -941,7 +941,7 @@ def build_domain(slug, lang):
     head = (f'<div class="page-head page-head--domain"><div class="page-head-bg" aria-hidden="true"></div><div class="wrap">{crumbs_html(lang, crumbs)}'
             f'<div class="domain-hero">{dsign(slug, "sign sign--xl", d["name"])}<div><h1>{E(p["title"].format(name=d["long"]))}</h1><p class="lead">{E(d["intro"])}</p></div></div></div></div>')
     body = f'''{head}
-<section class="section"><div class="wrap">{picture(IMG.DOMAIN_IMAGE.get(slug), lang, sizes="(min-width: 1240px) 1180px, 100vw", cls="media media--band")}<ul class="f-list">{cards}</ul></div></section>
+<section class="section" aria-labelledby="t-c"><div class="wrap"><h2 class="sr-only" id="t-c">{E(t(lang, "nav.formations"))} : {E(d["name"])}</h2>{picture(IMG.DOMAIN_IMAGE.get(slug), lang, sizes="(min-width: 1240px) 1180px, 100vw", cls="media media--band")}<ul class="f-list">{cards}</ul></div></section>
 <section class="section section--papier" aria-labelledby="t-s"><div class="wrap">
 <div class="section-head section-head--split"><h2 id="t-s">{E(t(lang, "sess.next"))}</h2><a class="lien-fleche" href="{R.page("agenda", lang)}">{E(t(lang, "cta.agenda"))}</a></div>
 {sessions_block(lang, f'data-domain="{slug}"', T[lang].PAGES["formation"]["sessions_empty"], limit=6)}
@@ -1634,6 +1634,17 @@ def write_static():
             fh.write("User-agent: *\nDisallow: /\n")
         else:
             fh.write(f"User-agent: *\nAllow: /\nDisallow: {BASE}/api/\n{disallow}\nSitemap: {CANON}/sitemap.xml\n")
+    # llms.txt : résumé du site et liens vers les pages clés pour les assistants IA (effet non garanti, docs/SEO.md)
+    tx = T["fr"]
+    lines = [f"# {C.SITE['name']}", "", f"> {tx.SITE['legal_name']}. Formations à la sécurité au travail à Engis (Liège), Charleroi et en entreprise, "
+             "en français et sur demande dans 10 autres langues. Prix HTVA par participant ; formations en entreprise sur devis.", "",
+             f"Contact : {C.SITE['phone_display']} · {C.SITE['email']} · Rue de la Paix 12, 4480 Engis", "", "## Formations"]
+    lines += [f"- [{tx.FORMATIONS[f['slug']]['full']}]({CANON}{R.formation(f['slug'], 'fr')})" + (f" : {fmt_num(PRICE[f['slug']], 'fr').replace(NNBSP, ' ')} € HTVA" if PRICE.get(f['slug']) else "")
+              for f in C.FORMATIONS]
+    lines += ["", "## Pages utiles"] + [f"- [{P('fr', k)['title']}]({CANON}{R.page(k, 'fr')})" for k in ("agenda", "entreprises", "salles", "langues", "faq", "contact")]
+    lines += ["", "## Autres langues", f"- [Nederlands]({CANON}{R.page('home', 'nl')})", f"- [English]({CANON}{R.page('home', 'en')})", ""]
+    with open(os.path.join(OUT, "llms.txt"), "w", encoding="utf-8") as fh:
+        fh.write("\n".join(lines))
     with open(os.path.join(OUT, "site.webmanifest"), "w") as fh:
         json.dump({"name": "Centre CFS", "short_name": "Centre CFS", "lang": "fr-BE", "start_url": BASE + "/", "scope": BASE + "/", "display": "standalone",
                    "background_color": "#FFFFFF", "theme_color": "#0D4A8C",
