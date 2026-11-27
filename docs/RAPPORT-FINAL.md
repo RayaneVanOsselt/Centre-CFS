@@ -31,12 +31,12 @@
 
 ✅ trois langues complètes · ✅ aucune page vide · ✅ un seul bouton jaune par écran · ✅ prix HTVA et TVAC, groupes sur
 devis · ✅ pictogrammes ISO 7010 · ✅ formulaires accessibles · ✅ aucune ressource tierce (hors Turnstile) ·
-✅ CSP stricte · ⬜ photos réelles du centre (à fournir) · ⬜ prix proposés et CGV à valider · ⬜ mesures Lighthouse sur
+✅ CSP stricte · ⬜ photos réelles du centre (à fournir) · ✅ grille de prix validée (27/11/2026) · ⬜ CGV à valider · ⬜ mesures Lighthouse sur
 le domaine final (après mise en ligne).
 
 ## Limites connues
 
-- Les 18 prix proposés (`docs/TARIFS.md`) et plusieurs durées sont **à valider** par le Centre CFS.
+- Grille de prix validée le 27/11/2026 ; plusieurs durées restent à préciser (`docs/TARIFS.md`).
 - Plan gratuit EmailJS : mention EmailJS en pied d'e-mail, 200 envois/mois (`QUOTAS.md`).
 - L'IA (Workers AI) ne fonctionne qu'avec le Worker publié ; sur GitHub Pages, le cœur local répond seul et les
   formulaires préparent un e-mail.

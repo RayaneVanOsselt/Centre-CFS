@@ -1,5 +1,5 @@
 {
-  "_comment": "PROPOSITION de tarifs HTVA par participant (inscription individuelle au centre), pour les formations SANS prix dans client/formations.csv. Les prix du catalogue du client (VCA Base, VCA Cadre, BA4, BA5) restent prioritaires et ne sont jamais remplacés. Alignés sur les tarifs publics belges relevés le 27/11/2026 (docs/TARIFS.md). À VALIDER par le Centre CFS avant la mise en production ; pour désactiver : CFS_PROPOSED_PRICES=0 à la construction. Formation en entreprise (intra) : toujours sur devis.",
+  "_comment": "Tarifs HTVA VALIDÉS par Rayane le 27/11/2026 par participant (inscription individuelle au centre), pour les formations SANS prix dans client/formations.csv. Les prix du catalogue du client (VCA Base, VCA Cadre, BA4, BA5) restent prioritaires et ne sont jamais remplacés. Alignés sur les tarifs publics belges relevés le 27/11/2026 (docs/TARIFS.md). Pour revenir à « Sur devis » : CFS_PROPOSED_PRICES=0 à la construction. Formation en entreprise (intra) : toujours sur devis.",
   "prix": {
     "conseiller-prevention-base": 1290,
     "recyclage-conseiller-prevention": 210,

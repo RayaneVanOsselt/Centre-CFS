@@ -77,4 +77,5 @@ dans `docs/RAPPORT-IMPORT.md` (régénéré à chaque construction).
 
 ## 8. Tarifs
 
-- [ ] **Valider la grille de `docs/TARIFS.md`** (18 prix proposés + durées manquantes) avant la mise en production
+- [x] Grille de `docs/TARIFS.md` validée par Rayane le 27/11/2026
+- [ ] Durées encore inconnues (« à préciser » dans `docs/TARIFS.md`) : à fournir par le Centre CFS

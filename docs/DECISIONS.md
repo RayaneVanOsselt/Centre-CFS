@@ -156,6 +156,6 @@ Une entrée par décision : contexte, options, choix, conséquences. Statut : **
   désactivables (`CFS_PROPOSED_PRICES=0`). (2) IA : Workers AI, modèle `@cf/google/gemma-4-26b-a4b-it` cité par
   Cloudflare comme disponible sur le plan gratuit, appelé seulement quand le cœur local n'est pas sûr de lui, réponse
   revalidée (liens, montants) et repli local en cas d'erreur ou de quota atteint.
-- **Conséquences** : les prix proposés sont à valider par le Centre CFS avant la production (`A-COMPLETER.md`). L'IA ne
+- **Conséquences** : grille validée par Rayane le 27/11/2026 (les durées « à préciser » restent à fournir). L'IA ne
   fonctionne qu'avec le Worker déployé (pas sur GitHub Pages, où le cœur local répond seul). Publication sans Node :
   workflow `deploy-cloudflare.yml` (bouton « Run workflow »).
