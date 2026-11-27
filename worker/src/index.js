@@ -10,7 +10,7 @@ import { sheetConfigured } from "./lib/sheets.js";
 import { emailConfigured, mollieConfigured, supabaseConfigured } from "./lib/services.js";
 import { getSessions } from "./routes/sessions.js";
 import { postContact, postRegistration, message } from "./routes/forms.js";
-import { deleteAccount, exportAccount, mollieWebhook, myReservations, paymentStatus, supabaseEmailHook } from "./routes/account.js";
+import { deleteAccount, exportAccount, inviteManager, mollieWebhook, myReservations, paymentStatus, supabaseEmailHook } from "./routes/account.js";
 import { postChat } from "./routes/chat.js";
 import { runCron } from "./cron.js";
 
@@ -30,6 +30,7 @@ const ROUTES = {
   "/api/account/reservations": { GET: myReservations },
   "/api/account/export": { GET: exportAccount },
   "/api/account/delete": { POST: deleteAccount },
+  "/api/account/company/invite": { POST: inviteManager },
   "/api/hooks/supabase-email": { POST: supabaseEmailHook },
 };
 

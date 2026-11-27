@@ -168,7 +168,8 @@
         return false;
       }
       delete form.dataset.requestId;
-      if (data.paymentUrl && /^https:\/\//.test(data.paymentUrl)) {
+      // Page de paiement Mollie (https) ; http seulement en local (banc d'essai)
+      if (data.paymentUrl && /^(https:\/\/|http:\/\/localhost(:\d+)?\/)/.test(data.paymentUrl)) {
         F.showStatus(statusBox(), "info", t("reg.redirecting"), "");
         root.location.href = data.paymentUrl;
         return true;

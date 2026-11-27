@@ -13,7 +13,7 @@ export function inDays(days) {
 }
 
 /**
- * @param {{ seed?: any[], env?: Record<string, string>, supabase?: (url: URL, init: any) => any, mollieStatus?: () => string }} [o]
+ * @param {{ seed?: any[], env?: Record<string, string>, supabase?: (url: URL, init: any) => any, mollieStatus?: (id: string) => string, checkoutBase?: string }} [o]
  */
 export function bench(o = {}) {
   const G = loadGas("apps-script/reservations.gs", { now: () => new Date(), props: { RESERVATIONS_HMAC_SECRET: SECRET } });
@@ -51,12 +51,13 @@ export function bench(o = {}) {
       if (method === "POST" && url.pathname === "/v2/payments") {
         const body = JSON.parse(init.body);
         const id = "tr_test" + String(Object.keys(payments).length + 1).padStart(5, "0");
-        payments[id] = { id, amount: body.amount, metadata: body.metadata, status: "open", _links: { checkout: { href: `https://www.mollie.com/checkout/${id}` } } };
+        const checkout = (o.checkoutBase || "https://www.mollie.com/checkout/") + id;
+        payments[id] = { id, amount: body.amount, metadata: body.metadata, redirectUrl: body.redirectUrl, status: "open", _links: { checkout: { href: checkout } } };
         return Response.json(payments[id], { status: 201 });
       }
       const id = url.pathname.split("/").pop();
       if (!payments[id]) return Response.json({ status: 404 }, { status: 404 });
-      return Response.json({ ...payments[id], status: o.mollieStatus ? o.mollieStatus() : payments[id].status });
+      return Response.json({ ...payments[id], status: o.mollieStatus ? o.mollieStatus(id) : payments[id].status });
     }
     if (url.hostname === "sb.test") {
       calls.supabase.push({ method, path: url.pathname + url.search, body: init.body ? JSON.parse(init.body) : null });

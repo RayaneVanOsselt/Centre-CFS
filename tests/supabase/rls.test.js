@@ -34,7 +34,8 @@ async function setup() {
   const db = new PGlite();
   await db.exec(BOOTSTRAP);
   const dir = path.join(ROOT, "supabase", "migrations");
-  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith(".sql")).sort()) await db.exec(fs.readFileSync(path.join(dir, f), "utf8"));
+  // Les migrations de Supabase Storage (schéma « storage ») ne s'exécutent que sur une vraie base Supabase
+  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith(".sql") && !x.includes("storage")).sort()) await db.exec(fs.readFileSync(path.join(dir, f), "utf8"));
   await db.exec(`insert into auth.users (id, email, raw_user_meta_data) values
     ('${A}', 'a@exemple.be', '{"locale":"nl","first_name":"Anna"}'), ('${B}', 'b@exemple.be', '{"locale":"xx"}');
     insert into public.certificates (user_id, participant_name, formation_slug, issued_on) values ('${B}', 'B', 'vca-base', '2026-01-10');`);
@@ -122,4 +123,36 @@ test("administrateur : lecture de tous les profils seulement avec le rôle SQL E
   await as(db, A, async () => assert.equal((await db.query("select count(*)::int n from public.profiles")).rows[0].n, 2), { app_metadata: { role: "admin" }, aal: "aal2" });
   // Un rôle « admin » dans user_metadata (modifiable par l'utilisateur) ne donne rien
   await as(db, A, async () => assert.equal((await db.query("select count(*)::int n from public.profiles")).rows[0].n, 1), { user_metadata: { role: "admin" }, aal: "aal2" });
+});
+
+test("invitation d'un second gestionnaire : acceptée seulement par l'adresse du jeton", { skip: !PGlite && "PGlite absent (npm ci)" }, async () => {
+  const db = await setup();
+  await db.exec("begin");
+  await db.exec("set local role authenticated");
+  await db.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: A, email: "a@exemple.be" })]);
+  const cid = (await db.query("select public.create_company('Exemple SRL', 'BE0417497106', 'Rue 1', '4000', 'Liège') id")).rows[0].id;
+  await db.exec("commit");
+  // Le Worker (rôle serveur) enregistre l'invitation après avoir vérifié que A est propriétaire
+  await db.query("insert into public.company_invitations (company_id, email, invited_by) values ($1, 'b@exemple.be', $2)", [cid, A]);
+  // Un autre compte avec une autre adresse : rien
+  await as(db, B, async () => assert.equal((await db.query("select public.accept_company_invitations() n")).rows[0].n, 0), { email: "pirate@exemple.be" });
+  // B avec la bonne adresse : membre, voit la société
+  await db.exec("begin");
+  await db.exec("set local role authenticated");
+  await db.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: B, email: "b@exemple.be" })]);
+  assert.equal((await db.query("select public.accept_company_invitations() n")).rows[0].n, 1);
+  assert.equal((await db.query("select count(*)::int n from public.companies")).rows[0].n, 1);
+  await db.exec("commit");
+  // B (gestionnaire) ne peut pas ajouter d'autres membres : seul le propriétaire le peut
+  await as(db, B, () => rejects(db.query("insert into public.company_members (company_id, user_id, role) values ($1, $2, 'manager')", [cid, "33333333-3333-4333-8333-333333333333"])), { email: "b@exemple.be" });
+});
+
+test("outils admin : recherche de compte et dépôt de certificat réservés au rôle SQL + aal2", { skip: !PGlite && "PGlite absent (npm ci)" }, async () => {
+  const db = await setup();
+  await as(db, A, () => rejects(db.query("select public.admin_find_user('b@exemple.be')"), "42501"), { aal: "aal2" });
+  await as(db, A, () => rejects(db.query("insert into public.certificates (user_id, participant_name, formation_slug, issued_on) values ($1, 'X', 'ba4', '2026-01-01')", [B]), "42501"));
+  await as(db, A, async () => {
+    assert.equal((await db.query("select public.admin_find_user('b@exemple.be') id")).rows[0].id, B);
+    await db.query("insert into public.certificates (user_id, participant_name, formation_slug, issued_on) values ($1, 'X', 'ba4', '2026-01-01')", [B]);
+  }, { app_metadata: { role: "admin" }, aal: "aal2" });
 });

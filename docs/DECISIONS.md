@@ -126,3 +126,16 @@ Une entrée par décision : contexte, options, choix, conséquences. Statut : **
   conforme au tableau 3.4 de la mission. Le générateur ne lit que ses propres clés, jamais un secret.
 - **Conséquences** : `BASE_PATH` vide et explicite (`BASE_PATH= …`) l'emporte sur `.dev.vars`, pour construire le site
   servi à la racine par le Worker (`npm run dev`, `npm run deploy`).
+
+## D-013 : comptes et paiement côté navigateur (validée, 27/11/2026)
+
+- **Contexte** : phases 7 et 8. `supabase-js` 2.119.0 est déjà copié dans `site/src/assets/vendor/supabase.js`.
+- **Choix** : `auth.js` (connexion par mot de passe, lien magique, Google en option, mot de passe oublié, double
+  authentification TOTP, flux PKCE) et `account.js` (réservations lues dans la feuille par le Worker, certificats en
+  liens signés de 5 minutes, profil, société, export, suppression, page admin) ; `supabase-js` chargé **seulement**
+  sur les pages compte. Second gestionnaire : invitation enregistrée par le Worker après contrôle du propriétaire,
+  acceptée à la connexion par l'adresse du jeton (`accept_company_invitations`). Certificats : seau Storage privé,
+  dépôt par l'administrateur (rôle SQL + aal2). Paiement : `payment.js` lit l'état réel (`/api/payments/status`),
+  jamais un paramètre de l'adresse ; relecture toutes les 3 s puis 15 s.
+- **Conséquences** : le paiement en ligne et la réservation ne demandent pas de compte (D-011). Banc d'essai du
+  parcours de paiement : `tests/browser/e2e.html?pay=1` (fausse page Mollie locale, webhook simulé).

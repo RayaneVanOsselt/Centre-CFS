@@ -1469,7 +1469,7 @@ def build_account_pages(lang):
 <button class="btn btn--bleu" type="submit">{E(ad["submit"])}</button></form></div>
 <div class="wrap-narrow" data-admin-forbidden hidden><p class="notice">{E(ad["forbidden"])}</p></div></section>'''
     page(lang, R.page("admin", lang), ad["meta_title"], ad["lead"], admin, alternates=all_alts("admin"), robots="noindex, nofollow", sitemap=False,
-         styles=("account.css",), scripts=ACCOUNT_SCRIPTS + ["/assets/js/admin.js"], body_class="is-account")
+         styles=("account.css",), scripts=ACCOUNT_SCRIPTS, body_class="is-account")  # account.js gère aussi la page admin
 
 
 # ───────────────────────────── fichiers techniques

@@ -11,7 +11,8 @@
  */
 import { fail, json } from "../lib/http.js";
 import { callSheet } from "../lib/sheets.js";
-import { mollie, sendEmail, supabase } from "../lib/services.js";
+import { mollie, rateLimit, sendEmail, supabase } from "../lib/services.js";
+import { EMAIL_RE, clean } from "../lib/validate.js";
 import { userFromRequest, verifyWebhook } from "../lib/auth.js";
 import { authEmail, t } from "../lib/emails.js";
 
@@ -84,6 +85,33 @@ export async function deleteAccount(request, env) {
   const d = await supabase(env, `/auth/v1/admin/users/${user.id}`, { method: "DELETE" });
   if (!d.ok) return fail("UNAVAILABLE", "unavailable", 503);
   await supabase(env, "/rest/v1/audit_log", { method: "POST", body: JSON.stringify({ actor: user.id, action: "account.delete", entity: "user", entity_id: user.id }) });
+  return json({ ok: true });
+}
+
+/**
+ * POST /api/account/company/invite { email, lang } : le PROPRIÉTAIRE d'une société invite un second gestionnaire.
+ * L'invitation est gardée 30 jours ; elle est acceptée à la première connexion de cette adresse (vérifiée par
+ * Supabase), par la fonction SQL accept_company_invitations. L'e-mail d'invitation part par le hook (EmailJS).
+ */
+export async function inviteManager(request, env) {
+  const user = await userFromRequest(request, env);
+  if (!user) return fail("UNAUTHORIZED", "unauthorized", 401);
+  const body = await request.json().catch(() => ({}));
+  const lang = ["fr", "nl", "en"].includes(body.lang) ? body.lang : "fr";
+  const email = clean(body.email, 160).toLowerCase();
+  if (!EMAIL_RE.test(email) || email === user.email.toLowerCase()) return fail("INVALID", t(lang, "form.error_email"), 400, { fields: { invite_email: "invalid" } });
+  if (!(await rateLimit(env, "invite:" + user.id, 5, 86400))) return fail("RATE_LIMITED", t(lang, "form.rate_limited"), 429);
+  const own = await supabase(env, `/rest/v1/company_members?user_id=eq.${user.id}&role=eq.owner&select=company_id&limit=1`);
+  const companyId = own.ok && Array.isArray(own.data) && own.data[0] ? own.data[0].company_id : null;
+  if (!companyId) return fail("FORBIDDEN", t(lang, "form.error_text"), 403);
+  const saved = await supabase(env, "/rest/v1/company_invitations", {
+    method: "POST", headers: { Prefer: "resolution=merge-duplicates" },
+    body: JSON.stringify({ company_id: companyId, email, invited_by: user.id }),
+  });
+  if (!saved.ok) return fail("UNAVAILABLE", t(lang, "form.error_text"), 503);
+  // Compte inexistant : invitation Supabase (e-mail via le hook) ; compte existant : rattaché à sa prochaine connexion
+  await supabase(env, "/auth/v1/invite", { method: "POST", body: JSON.stringify({ email, data: { locale: lang } }) });
+  await supabase(env, "/rest/v1/audit_log", { method: "POST", body: JSON.stringify({ actor: user.id, action: "company.invite", entity: "company", entity_id: companyId }) });
   return json({ ok: true });
 }
 
