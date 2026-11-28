@@ -633,5 +633,7 @@
   "chat.find_again": "Een andere opleiding zoeken",
   "chat.card_book_short": "Reserveren",
   "chat.card_view": "Bekijk de fiche",
-  "chat.card_for": "Voor wie?"
+  "chat.card_for": "Voor wie?",
+  "theme.dark": "Donkere modus inschakelen",
+  "theme.light": "Lichte modus inschakelen"
 }

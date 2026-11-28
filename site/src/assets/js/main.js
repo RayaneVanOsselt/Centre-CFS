@@ -23,6 +23,30 @@
     document.addEventListener("keydown", (e) => { if (html.classList.contains("intro-on")) stop(); }, { once: true });
   }
 
+  /* ---------- Thème clair / sombre (bouton de l'en-tête) ----------
+     Sans choix du visiteur : préférence du système. Le choix est gardé dans ce navigateur (theme.js l'applique
+     avant l'affichage des pages suivantes). Le libellé du bouton dit l'action : « Passer en mode clair / sombre ». */
+  const themeBtn = $("[data-theme-toggle]");
+  if (themeBtn) {
+    const root = document.documentElement;
+    const sys = window.matchMedia("(prefers-color-scheme: dark)");
+    const isDark = () => { const v = root.getAttribute("data-theme"); return v ? v === "dark" : sys.matches; };
+    const sync = () => {
+      const dark = isDark();
+      const label = t(dark ? "theme.light" : "theme.dark");
+      themeBtn.setAttribute("aria-label", label);
+      themeBtn.title = label;
+    };
+    sync();
+    themeBtn.addEventListener("click", () => {
+      const next = isDark() ? "light" : "dark";
+      root.setAttribute("data-theme", next);
+      store.set("cfs-theme", next);
+      sync();
+    });
+    sys.addEventListener("change", sync);
+  }
+
   /* ---------- Bandeau d'annonce ---------- */
   const annonce = $(".annonce");
   if (annonce) {
