@@ -12,6 +12,22 @@ Navigateur ──POST /api/registrations──▶ Worker (Turnstile, limites, va
                                          (verrou → relecture → places suffisantes ? → écriture → { reference, remaining })
 ```
 
+### Sans Worker : « tout chez Google » (D-018)
+
+```
+Navigateur ──GET …/exec?route=sessions──▶ Apps Script (cache 20 s) ──▶ feuille        (liste publique, sans signature)
+Navigateur ──POST …/exec?route=contact──▶ Apps Script : validation, robots, limites, doublons → Demandes → e-mail Gmail
+Navigateur ──POST …/exec?route=registration──▶ Apps Script : entreprise avec TVA et session → « book » (verrou, places)
+                                                          sinon → demande d'inscription (onglet Demandes)
+```
+
+Corps JSON envoyé en `text/plain` (requête « simple » : Apps Script ne traite pas la pré-vérification CORS) ; sans
+JavaScript, formulaire HTML classique et page de confirmation. Pas de paiement en ligne ni de compte dans ce mode
+(Worker nécessaire). Toutes les autres actions de l'Apps Script exigent toujours la signature HMAC. Limites : 5 demandes
+par adresse e-mail et par heure, plafonds globaux par heure et par 6 heures, délai minimum de remplissage, champ piège.
+Tests : `tests/reservations.test.js` (« accès direct ») ; banc de bout en bout : site construit avec
+`GOOGLE_SCRIPT_URL=/gas/exec` (`--dev`) et `tests/browser/e2e.html`.
+
 ## Parcours d'une réservation
 
 1. `/inscription/?formation=vca-base&session=<id>` : la session est présélectionnée ; « Il reste N places ».

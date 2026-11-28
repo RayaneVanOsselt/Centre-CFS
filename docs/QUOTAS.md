@@ -12,6 +12,8 @@ service (les offres gratuites changent). Dernière relecture de ce document : 27
 | EmailJS | **200 envois/mois**, 2 modèles, 50 Ko par envoi, pas de pièce jointe, 1 envoi/s, mention EmailJS en pied | 2 modèles génériques ; un envoi par événement ; compteur mensuel partagé (feuille + Worker, action `countEmail`) ; priorités P1 > P2 > P3 ; file d'envoi espacée de 1,1 s ; liens au lieu de pièces jointes |
 | Apps Script | réponses en 1 à 3 s, ≈ 30 exécutions simultanées, quotas journaliers | Lecture publique **toujours** par le Worker avec cache (la feuille est lue au plus une fois par 30 s, quel que soit le trafic) ; écritures sous verrou avec `requestId` |
 | Turnstile | gratuit | un widget par type de formulaire |
+| Gmail (MailApp, voie « tout chez Google ») | environ 100 destinataires par jour (compte Gmail), 1 500 (Google Workspace) | e-mails envoyés par la file d'envoi de la feuille ; quota du jour atteint : l'e-mail attend 6 h sans essai perdu ; compteur mensuel (2 500 par défaut, propriété `EMAIL_MONTHLY_QUOTA`) |
+| Apps Script, accès direct du site | environ 30 exécutions simultanées, 6 min par exécution | liste des sessions en cache 20 s ; demandes courtes (verrou de 15 à 20 s au plus) |
 
 ## Consommation d'e-mails estimée (par mois)
 

@@ -95,4 +95,9 @@ export function randomBytes(n) {
   globalThis.crypto.getRandomValues(a);
   return Buffer.from(a);
 }
-export default { createHash, createHmac, randomBytes };
+/** Identifiant unique (comme crypto.randomUUID de Node), fourni par le navigateur. */
+export function randomUUID() {
+  return globalThis.crypto.randomUUID();
+}
+
+export default { createHash, createHmac, randomBytes, randomUUID };

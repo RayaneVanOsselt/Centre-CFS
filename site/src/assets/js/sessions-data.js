@@ -7,7 +7,7 @@
    ========================================================================= */
 (function (root) {
   "use strict";
-  var data = { generatedAt: "2026-11-27", sessions: [
+  var data = { generatedAt: "2026-11-28", sessions: [
   {
     "id": "2026-12-10-vca-base-charleroi",
     "training": "vca-base",
@@ -16,18 +16,6 @@
     "startTime": "08:30",
     "endTime": "17:00",
     "location": "charleroi",
-    "language": "fr",
-    "capacity": null,
-    "status": "open"
-  },
-  {
-    "id": "2026-11-26-vca-ligne-hierarchique-engis",
-    "training": "vca-ligne-hierarchique",
-    "date": "2026-11-26",
-    "endDate": "2026-11-27",
-    "startTime": "08:30",
-    "endTime": "17:00",
-    "location": "engis",
     "language": "fr",
     "capacity": null,
     "status": "open"

@@ -276,6 +276,9 @@ export function loadGas(file, opts = {}) {
   const alerts = [];
   const toasts = [];
   const http = [];
+  /* Gmail (MailApp) : envois enregistrés ; quota du jour réglable (opts.mailQuota, 100 par défaut). */
+  const mails = [];
+  let mailLeft = opts.mailQuota ?? 100;
   const triggers = [];
   const created = [];
   const drive = fakeDrive();
@@ -421,6 +424,28 @@ export function loadGas(file, opts = {}) {
       },
     },
     DriveApp: drive.api,
+    MailApp: {
+      getRemainingDailyQuota: () => mailLeft,
+      sendEmail: (o) => {
+        const n = 1 + (o.bcc ? 1 : 0);
+        if (mailLeft < n) throw new Error("Service invoked too many times for one day: email.");
+        mailLeft -= n;
+        mails.push(o);
+      },
+    },
+    HtmlService: {
+      createHtmlOutput: (html) => ({
+        html,
+        title: "",
+        setTitle(t) {
+          this.title = t;
+          return this;
+        },
+        getContent() {
+          return this.html;
+        },
+      }),
+    },
     ContentService: {
       MimeType: { JSON: "json" },
       createTextOutput: (text) => ({
@@ -434,6 +459,7 @@ export function loadGas(file, opts = {}) {
       formatDate,
       parseDate,
       sleep: () => {},
+      getUuid: () => crypto.randomUUID(),
       computeDigest: (alg, v) => signed(crypto.createHash("sha256").update(String(v)).digest()),
       computeHmacSha256Signature: (value, key) => signed(crypto.createHmac("sha256", String(key)).update(String(value)).digest()),
       DigestAlgorithm: { SHA_256: "sha256" },
@@ -464,6 +490,7 @@ export function loadGas(file, opts = {}) {
     alerts,
     toasts,
     http,
+    mails,
     triggers,
     env,
     created,
