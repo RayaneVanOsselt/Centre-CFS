@@ -282,7 +282,6 @@ def asset(path):
 
 
 # ───────────────────────────── en-tête, pied de page
-NAV = [("agenda", "nav.agenda"), ("entreprises", "nav.entreprises"), ("salles", "nav.salles"), ("centre", "nav.centre"), ("contact", "nav.contact")]
 
 
 def lang_switch(lang, alternates):
@@ -298,24 +297,56 @@ def lang_switch(lang, alternates):
 
 
 def nav_html(lang, active):
-    cols = []
-    for d in C.DOMAINES:
+    """Navigation principale.
+    Ordinateur : « Formations » ouvre un méga-menu (domaines à gauche, formations du domaine survolé avec durée et tarif,
+    prochaines sessions en direct et encart « en entreprise » à droite) ; « Le centre » regroupe les pages de service.
+    Mobile : tiroir plein écran (recherche, tuiles des domaines, liens, appel et devis)."""
+    doms, panels, tiles = [], [], []
+    for i, d in enumerate(C.DOMAINES):
         dd = domain(d["slug"], lang)
-        lis = "".join(f'<li><a href="{f["url"]}">{E(f["title"])}</a></li>' for f in dd["formations"])
-        cols.append(f'<div class="mega-col"><h3>{dsign(d["slug"])}<a href="{dd["url"]}">{E(dd["name"])}</a></h3><ul>{lis}</ul></div>')
-    links = []
-    for key, label in NAV:
-        cur = ' aria-current="page"' if active == key else ""
-        links.append(f'<li><a href="{R.page(key, lang)}"{cur}>{E(t(lang, label))}</a></li>')
-    cur_f = ' aria-current="page"' if active == "formations" else ""
+        n = len(dd["formations"])
+        count = t(lang, "common.formation_count_one" if n == 1 else "common.formation_count", n=n)
+        first = i == 0
+        doms.append(f'<li><button class="mega-dom" type="button" data-mega-dom="{d["slug"]}" aria-controls="mega-p-{d["slug"]}" '
+                    f'aria-expanded="{"true" if first else "false"}">{dsign(d["slug"])}<span><b>{E(dd["name"])}</b><small>{E(count)}</small></span>'
+                    f'{icon("chevron-right")}</button></li>')
+        trs = "".join(
+            f'<li><a class="mega-tr" href="{f["url"]}"><span class="mega-tr-t">{E(f["title"])}</span>'
+            f'<span class="mega-tr-m">{E(" · ".join(x for x in (f["duree"], price_text(f, lang)) if x))}</span>{icon("arrow")}</a></li>'
+            for f in dd["formations"])
+        panels.append(f'<div class="mega-panel mega-panel--{d["color"]}" id="mega-p-{d["slug"]}" data-mega-panel="{d["slug"]}"{"" if first else " hidden"}>'
+                      f'<div class="mega-panel-head"><div><h3>{E(dd["long"])}</h3><p>{E(dd["intro"])}</p></div>'
+                      f'<a class="lien-fleche" href="{dd["url"]}">{E(t(lang, "nav.see_domain"))}</a></div><ul class="mega-trs">{trs}</ul></div>')
+        tiles.append(f'<li><a class="mega-tile" href="{dd["url"]}">{dsign(d["slug"])}<span><b>{E(dd["name"])}</b><small>{E(count)}</small></span></a></li>')
+    cur = lambda key: ' aria-current="page"' if active == key else ""
+    centre = [("centre", "footer.about_link"), ("salles", "nav.salles"), ("langues", "footer.languages"), ("actualites", "footer.news"), ("faq", "footer.faq")]
+    centre_items = "".join(f'<li><a href="{R.page(k, lang)}"{cur(k)}>{E(t(lang, lab))}</a></li>' for k, lab in centre)
+    centre_on = ' class="is-current"' if active in [k for k, _ in centre] else ""
     account_btn = (f'<a class="btn btn--contour" href="{R.page("compte", lang)}">{icon("user")} {E(t(lang, "nav.account"))}</a>'
                    if PUBLIC["accounts"] else "")
     return f'''<nav class="nav" id="nav" aria-label="{E(t(lang, "nav.main"))}">
+<a class="nav-search" href="{R.page("recherche", lang)}" data-search-open>{icon("search")}<span>{E(t(lang, "search.pill"))}</span></a>
 <ul class="nav-list">
-<li class="has-mega"><button class="nav-btn" type="button" aria-expanded="false" aria-controls="mega">{E(t(lang, "nav.formations"))}{icon("chevron")}</button>
-<div class="mega" id="mega"><div class="wrap"><div class="mega-grid">{"".join(cols)}</div>
-<div class="mega-foot"><a class="btn btn--bleu btn--petit" href="{R.page("formations", lang)}"{cur_f}>{E(t(lang, "nav.catalog_all"))}</a><p>{E(t(lang, "nav.mega_note"))}</p></div></div></div></li>
-{"".join(links)}
+<li class="has-mega"><button class="nav-btn" type="button" aria-expanded="false" aria-controls="mega"{' data-current' if active == "formations" else ""}>{E(t(lang, "nav.formations"))}{icon("chevron")}</button>
+<div class="mega" id="mega">
+<div class="wrap mega-inner">
+<ul class="mega-doms">{"".join(doms)}</ul>
+<div class="mega-panels">{"".join(panels)}</div>
+<aside class="mega-aside">
+<section class="mega-card mega-card--next"><h3>{icon("calendar")}{E(t(lang, "sess.next"))}</h3><ol class="mega-next" data-mega-next><li class="mega-next-wait">{E(t(lang, "common.loading"))}</li></ol>
+<a class="lien-fleche" href="{R.page("agenda", lang)}">{E(t(lang, "footer.agenda"))}</a></section>
+<section class="mega-card mega-card--intra"><h3>{icon("users")}{E(t(lang, "nav.intra_title"))}</h3><p>{E(t(lang, "nav.mega_note"))}</p>
+<a class="btn btn--bleu btn--petit" href="{R.page("contact", lang)}?type=devis">{E(t(lang, "nav.quote"))}</a></section>
+</aside>
+</div>
+<ul class="mega-tiles">{"".join(tiles)}</ul>
+<div class="mega-foot"><div class="wrap"><a class="lien-fleche" href="{R.page("formations", lang)}"{cur("formations")}>{E(t(lang, "nav.catalog_all"))}</a></div></div>
+</div></li>
+<li><a href="{R.page("agenda", lang)}"{cur("agenda")}>{E(t(lang, "nav.agenda"))}</a></li>
+<li><a href="{R.page("entreprises", lang)}"{cur("entreprises")}>{E(t(lang, "nav.entreprises"))}</a></li>
+<li class="has-drop"><button class="nav-btn nav-btn--drop" type="button" aria-expanded="false" aria-controls="drop-centre"{centre_on}>{E(t(lang, "nav.centre"))}{icon("chevron")}</button>
+<ul class="drop" id="drop-centre">{centre_items}</ul></li>
+<li><a href="{R.page("contact", lang)}"{cur("contact")}>{E(t(lang, "nav.contact"))}</a></li>
 </ul>
 <div class="nav-mobile-cta"><a class="btn btn--bleu" href="{R.page("contact", lang)}?type=devis">{E(t(lang, "nav.quote"))}</a>{account_btn}<a class="btn btn--contour" href="{tel()}">{icon("phone")} {C.SITE["phone_display"]}</a></div>
 </nav>'''
@@ -329,14 +360,15 @@ def header_html(lang, active, alternates):
 <a class="logo" href="{R.page("home", lang)}" aria-label="{E(t(lang, "nav.home"))}">{LOGO_HEADER}</a>
 {nav_html(lang, active)}
 <div class="header-actions">
-<a class="icon-link search-btn" href="{R.page("recherche", lang)}" data-search-open aria-haspopup="dialog" aria-label="{E(t(lang, "search.open"))}" title="{E(t(lang, "search.open"))} (/)">{icon("search")}</a>
+<a class="search-pill" href="{R.page("recherche", lang)}" data-search-open aria-haspopup="dialog" aria-label="{E(t(lang, "search.open"))}" title="{E(t(lang, "search.open"))} (/)">{icon("search")}<span>{E(t(lang, "search.pill"))}</span><kbd>/</kbd></a>
 {lang_switch(lang, alternates)}
 {account_link}<a class="tel-link" href="{tel()}" aria-label="{E(t(lang, "nav.call", phone=C.SITE["phone_display"]))}">{icon("phone")}<span>{C.SITE["phone_display"]}</span></a>
 <a class="btn btn--contour btn--petit header-quote" href="{R.page("contact", lang)}?type=devis">{E(t(lang, "nav.quote"))}</a>
 <button class="burger" type="button" aria-expanded="false" aria-controls="nav" aria-label="{E(t(lang, "nav.open_menu"))}" data-label-open="{E(t(lang, "nav.open_menu"))}" data-label-close="{E(t(lang, "nav.close_menu"))}"><span class="i-open">{icon("menu")}</span><span class="i-close" hidden>{icon("close")}</span></button>
 </div>
 </div>
-</header>'''
+</header>
+<div class="mega-backdrop" data-mega-backdrop hidden></div>'''
 
 
 def footer_html(lang):
@@ -1521,7 +1553,7 @@ def build_account_pages(lang):
 # ───────────────────────────── fichiers techniques
 DATA_V = {}
 KB_V = {}  # empreintes des bases de connaissances de l'assistant (cache)
-JS_KEYS = ("lang.", "nav.", "common.", "cta.", "loc.", "sess.", "availability.", "search.", "form.", "reg.", "pay.", "acc.", "chat.", "intro.")
+JS_KEYS = ("lang.", "nav.", "common.", "cta.", "loc.", "sess.", "availability.", "search.", "form.", "reg.", "pay.", "acc.", "chat.", "intro.", "footer.")
 
 
 def site_data(lang):
@@ -1540,12 +1572,15 @@ def site_data(lang):
         "alternates": {lg: BASE + R.page("home", lg) for lg in LANGS},
         "langNames": {lg: UI[lg]["lang.name"] for lg in LANGS},
         "bannerText": {lg: {"text": UI[lg]["lang.banner"], "go": UI[lg]["lang.banner_go"], "close": UI[lg]["lang.banner_close"]} for lg in LANGS},
-        "icons": {n: icon(n) for n in ("pin", "clock", "globe", "calendar", "arrow", "mail", "phone", "users", "check-circle", "alert", "info", "doc", "close")},
+        "icons": {n: icon(n) for n in ("pin", "clock", "globe", "calendar", "arrow", "mail", "phone", "users", "check-circle", "alert", "info", "doc", "close",
+                                        "search", "chevron-right", "send", "chat", "euro", "award", "hourglass", "target", "building", "user", "check")},
     }
     strings = {k: v for k, v in UI[lang].items() if k.startswith(JS_KEYS)}
     cfg_pub = {k: v for k, v in PUBLIC.items() if k not in ("supabaseUrl", "supabaseKey") or PUBLIC["accounts"]}
     cfg_pub["dev"] = DEV
     cfg_pub["hero3d"] = BASE + asset("/assets/js/hero-3d.js")  # module chargé à la demande par main.js (accueil)
+    # Prochaines sessions du méga-menu : liste lue par sessions.js, chargé à la demande à l'ouverture du menu
+    cfg_pub["sessionsScripts"] = [BASE + asset("/assets/js/sessions-data.js"), BASE + asset("/assets/js/sessions.js")]
     # Recherche du site : module et base de connaissances (même base que l'assistant) chargés à la demande par main.js
     cfg_pub["search"] = {"module": BASE + asset("/assets/js/search/search.js"), "kb": BASE + f"/assets/data/kb.{lang}.json?v={KB_V.get(lang, '')}",
                          "page": BASE + R.page("recherche", lang)}
