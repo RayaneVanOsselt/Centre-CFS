@@ -6,6 +6,9 @@
  * pour chaque vraie question : l'IA reçoit la réponse locale vérifiée, le fil de la conversation et les sessions, et sa
  * réponse est revalidée ici ; intentions sensibles (sécurité, obligations légales, agrément…) : réponse locale seule.
  * Transmission volontaire de la question à l'équipe (POST /api/contact). Avis « utile / pas utile » anonyme.
+ * « Conseiller formation » : accueil en 4 actions, parcours guidé « Trouver ma formation » (domaine → pour qui →
+ * fiches), fiches riches (durée, tarif, validité, prochaine date et places restantes, Réserver / Fiche / Devis), tout
+ * tiré du catalogue, de la base de connaissances et des sessions publiées (rien d'inventé).
  * Texte rendu par textContent uniquement ; liens créés à partir d'adresses validées. Rien n'est gardé après
  * la fermeture de l'onglet (sessionStorage au plus).
  */
@@ -16,6 +19,7 @@ import { loadKb, kbUrlFor } from "./knowledge.js";
 
 const W = /** @type {any} */ (window);
 const cfg = W.CFS_CONFIG || {};
+const CAT = W.CFS_CATALOG || {};
 const I = W.CfsI18n;
 const t = (k, v) => (I ? I.t(k, v) : k);
 const lang = (I && I.lang()) || document.documentElement.getAttribute("data-lang") || "fr";
@@ -74,8 +78,9 @@ function build() {
   panel.setAttribute("aria-labelledby", "chat-title");
   panel.hidden = true;
   const head = el("header", "chat-head");
-  const sign = el("span", "chat-sign", "i");
+  const sign = el("span", "chat-sign");
   sign.setAttribute("aria-hidden", "true");
+  sign.append(el("span", "chat-sign-i", "i"), el("span", "chat-sign-dot"));
   const titles = el("div", "chat-titles");
   const title = el("h2", "chat-title", t("chat.title"));
   title.id = "chat-title";
@@ -111,8 +116,11 @@ function build() {
   input.maxLength = 1000;
   input.placeholder = t("chat.placeholder");
   input.setAttribute("enterkeyhint", "send");
-  const send = el("button", "btn btn--bleu chat-send", t("chat.send"));
+  const send = el("button", "chat-send");
   send.type = "submit";
+  send.setAttribute("aria-label", t("chat.send"));
+  send.title = t("chat.send");
+  send.append(icon("send"));
   form.append(label, input, send);
   const privacy = el("p", "chat-privacy", t("chat.privacy"));
   panel.append(head, notice, log, form, privacy);
@@ -120,6 +128,10 @@ function build() {
 
   close.addEventListener("click", hide);
   reset.addEventListener("click", () => { history = []; turns = 0; save(); log.textContent = ""; greet(); input.focus(); });
+  // Champ de saisie : s'agrandit avec le texte (4 lignes au plus)
+  const grow = () => { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 120) + "px"; };
+  input.addEventListener("input", grow);
+  form.addEventListener("submit", () => setTimeout(grow, 0));
   form.addEventListener("submit", (e) => { e.preventDefault(); ask(input.value); });
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(input.value); }
@@ -164,10 +176,170 @@ function bubble(who, text) {
   const b = el("div", "chat-msg chat-msg--" + who);
   const name = el("p", "sr-only", who === "user" ? t("chat.you") : t("chat.bot_name"));
   b.append(name);
-  String(text).split("\n\n").forEach((p) => b.append(el("p", "", p)));
+  String(text).split("\n\n").forEach((p) => b.append(rich(p)));
   log.append(b);
   if (atBottom) log.scrollTop = log.scrollHeight;
   return b;
+}
+
+/** Un paragraphe mis en forme sans innerHTML : lignes « - » ou « • » en liste, **texte** en gras. */
+function rich(par) {
+  const lines = String(par).split("\n");
+  const bullet = /^\s*[-•]\s+/;
+  if (lines.length > 1 && lines.filter((l) => bullet.test(l)).length >= 2) {
+    const frag = document.createDocumentFragment();
+    let ul = null;
+    for (const line of lines) {
+      if (bullet.test(line)) {
+        if (!ul) { ul = el("ul", "chat-list"); frag.append(ul); }
+        const li = el("li");
+        inline(li, line.replace(bullet, ""));
+        ul.append(li);
+      } else if (line.trim()) { ul = null; const p = el("p"); inline(p, line); frag.append(p); }
+    }
+    return frag;
+  }
+  const p = el("p");
+  inline(p, par);
+  return p;
+}
+function inline(node, text) {
+  String(text).split(/(\*\*[^*]+\*\*)/).forEach((part) => {
+    if (/^\*\*[^*]+\*\*$/.test(part)) node.append(el("strong", "", part.slice(2, -2)));
+    else if (part) node.append(document.createTextNode(part));
+  });
+}
+
+/** Icône du catalogue du site (SVG généré à la construction, jamais une donnée saisie). */
+function icon(name) {
+  const span = el("span", "chat-ico");
+  span.setAttribute("aria-hidden", "true");
+  span.innerHTML = (CAT.icons || {})[name] || "";
+  return span;
+}
+function domainOf(id) { return (CAT.domains || []).find((d) => d.id === id) || null; }
+function formationOf(id) { return (CAT.formations || []).find((f) => f.id === id) || null; }
+function money(n) { return I && I.money ? I.money(n) : n + " €"; }
+function route(k) { return (CAT.routes || {})[k] || "/"; }
+
+/** Bouton-lien (réserver, fiche, devis) d'une fiche. */
+function action(label, href, primary) {
+  const a = el("a", "chat-btn" + (primary ? " chat-btn--main" : ""), label);
+  /** @type {HTMLAnchorElement} */ (a).href = href;
+  return a;
+}
+
+/**
+ * Fiche riche d'une formation : pictogramme du domaine, titre, durée, tarif HTVA, validité, public, prochaine date
+ * avec places restantes (sessions publiées), puis Réserver / Voir la fiche / Demander un devis.
+ * @param {string} id  identifiant de la formation
+ * @param {{ team?: boolean }} [o]
+ */
+function formationCard(id, o = {}) {
+  const f = formationOf(id);
+  if (!f) return null;
+  const entry = kb ? kb.entries.find((e) => e.type === "formation" && e.slug === id) : null;
+  const facts = (entry && entry.facts) || {};
+  const card = el("article", "chat-fcard");
+  const dom = domainOf(f.domain);
+  if (dom) card.style.setProperty("--fc", "var(--" + ({ bleu: "bleu", rouge: "rouge", vert: "vert", jaune: "jaune-fonce" }[dom.color] || "bleu") + ")");
+  const head = el("div", "chat-fcard-head");
+  const sign = el("span", "chat-fcard-sign");
+  sign.setAttribute("aria-hidden", "true");
+  if (dom) sign.innerHTML = dom.sign;     // pictogramme ISO 7010 du catalogue
+  const titles = el("div");
+  const h = el("h3", "", f.full || f.title);
+  titles.append(h);
+  if (dom) titles.append(el("p", "chat-fcard-dom", dom.name));
+  head.append(sign, titles);
+  card.append(head);
+  const chips = el("ul", "chat-fcard-facts");
+  const chip = (ic, text) => { if (!text) return; const li = el("li"); li.append(icon(ic), el("span", "", text)); chips.append(li); };
+  chip("clock", f.duration);
+  chip("euro", f.price ? money(f.price) + " " + t("common.htva") : t("common.quote"));
+  chip("award", facts.validity);
+  if (chips.children.length) card.append(chips);
+  if (facts.public) {
+    const who = el("p", "chat-fcard-who");
+    who.append(el("strong", "", t("chat.card_for") + " "), document.createTextNode(cut(facts.public, 150)));
+    card.append(who);
+  }
+  const next = el("p", "chat-fcard-next");
+  next.append(icon("calendar"), el("span", "", t("common.loading")));
+  card.append(next);
+  const acts = el("div", "chat-fcard-acts");
+  card.append(acts);
+  const quote = route("contact") + "?type=devis&formation=" + encodeURIComponent(id);
+  sessions().then((ses) => {
+    const S = W.CfsSessions;
+    const s = ses ? ses.list.find((x) => x.training === id && x.state !== "closed") : null;
+    const span = /** @type {HTMLElement} */ (next.lastChild);
+    if (s && S) {
+      next.classList.add("is-" + s.state);
+      span.textContent = t("common.next_date") + " : " + S.shortDate(s.date) + " · " + S.place(s.location).name + " · " + S.seatsText(s);
+    } else {
+      span.textContent = t("common.next_date") + " : " + t("common.on_request");
+    }
+    acts.textContent = "";
+    if (o.team) acts.append(action(t("nav.quote"), quote, true));
+    else if (f.bookable && s && s.state !== "full") acts.append(action(t("chat.card_book_short"), route("inscription") + "?formation=" + encodeURIComponent(id) + "&session=" + encodeURIComponent(s.id), true));
+    else if (f.bookable) acts.append(action(t("chat.card_register"), route("inscription") + "?formation=" + encodeURIComponent(id), true));
+    acts.append(action(t("chat.card_view"), f.url, false));
+    if (!o.team) acts.append(action(t("nav.quote"), quote, false));
+  });
+  return card;
+}
+function cut(s, n) { const x = String(s || ""); return x.length <= n ? x : x.slice(0, x.lastIndexOf(" ", n)) + "…"; }
+
+/** Message du conseiller avec des choix (boutons) ; les choix disparaissent une fois l'un d'eux cliqué. */
+function choices(text, list, cls) {
+  const b = bubble("bot", text);
+  const box = el("div", "chat-choices" + (cls ? " " + cls : ""));
+  list.forEach((c) => {
+    const btn = el("button", "chat-choice");
+    btn.type = "button";
+    if (c.sign) { const s = el("span", "chat-choice-sign"); s.setAttribute("aria-hidden", "true"); s.innerHTML = c.sign; btn.append(s); }
+    else if (c.icon) btn.append(icon(c.icon));
+    const txt = el("span", "chat-choice-txt");
+    txt.append(el("b", "", c.label));
+    if (c.sub) txt.append(el("small", "", c.sub));
+    btn.append(txt);
+    btn.addEventListener("click", () => { box.remove(); c.run(); });
+    box.append(btn);
+  });
+  b.append(box);
+  scrollEnd();
+  return b;
+}
+function scrollEnd() { log.scrollTop = log.scrollHeight; }
+
+/* ---------------- parcours « Trouver ma formation » ---------------- */
+
+function finder() {
+  const old = log.querySelector(".chat-suggest");
+  if (old) old.remove();
+  bubble("user", t("chat.tile_find"));
+  const count = (id) => (CAT.formations || []).filter((f) => f.domain === id).length;
+  choices(t("chat.find_domain"), (CAT.domains || []).map((d) => ({
+    label: d.name, sign: d.sign, sub: t(count(d.id) === 1 ? "common.formation_count_one" : "common.formation_count", { n: count(d.id) }),
+    run: () => finderWho(d),
+  })), "chat-choices--grid");
+}
+function finderWho(d) {
+  bubble("user", d.name);
+  choices(t("chat.find_who"), [
+    { label: t("chat.find_me"), icon: "user", run: () => finderResult(d, false) },
+    { label: t("chat.find_team"), icon: "users", run: () => finderResult(d, true) },
+  ], "chat-choices--row");
+}
+function finderResult(d, team) {
+  bubble("user", t(team ? "chat.find_team" : "chat.find_me"));
+  const b = bubble("bot", t("chat.find_result", { domain: d.name }) + (team ? "\n\n" + t("nav.mega_note") : ""));
+  const list = el("div", "chat-fcards");
+  (CAT.formations || []).filter((f) => f.domain === d.id).forEach((f) => { const c = formationCard(f.id, { team }); if (c) list.append(c); });
+  b.append(list);
+  scrollEnd();
+  suggestions([t("chat.find_again"), t("chat.tile_dates_q")], (s) => (s === t("chat.find_again") ? finder() : ask(s)));
 }
 
 /** Indicateur « l'assistant écrit… » (trois points animés ; texte lu par les lecteurs d'écran). */
@@ -203,9 +375,15 @@ function feedback(b, a) {
 function renderAnswer(a) {
   const b = bubble("bot", a.message);
   if (a.meta && a.meta.ai) b.classList.add("chat-msg--ai");
-  if (a.cards && a.cards.length) {
+  const fcard = a.meta && a.meta.formation && !FIXED.has(a.meta.intent) ? formationCard(a.meta.formation) : null;
+  const fUrl = fcard ? (formationOf(a.meta.formation) || {}).url : null;
+  // Liens déjà présents dans la fiche (page de la formation, inscription ou devis pour cette formation) : pas de doublon
+  const same = (u) => fcard && (u === fUrl || String(u).includes("formation=" + encodeURIComponent(a.meta.formation)));
+  const cards = (a.cards || []).filter((c) => !same(c.url));
+  if (fcard) b.append(fcard);
+  if (cards.length) {
     const ul = el("ul", "chat-cards");
-    for (const c of a.cards) {
+    for (const c of cards) {
       const li = el("li", "chat-card chat-card--" + c.type);
       const link = el("a", "", c.title);
       link.href = c.url;            // adresse déjà validée (liste blanche du site)
@@ -233,7 +411,8 @@ function renderAnswer(a) {
   if (a.suggestions && a.suggestions.length) suggestions(a.suggestions);
 }
 
-function suggestions(list) {
+/** Puces de suggestions sous la conversation ; par défaut, un clic pose la question. */
+function suggestions(list, run = ask) {
   const old = log.querySelector(".chat-suggest");
   if (old) old.remove();
   const box = el("div", "chat-suggest");
@@ -241,18 +420,43 @@ function suggestions(list) {
   list.forEach((s) => {
     const b = el("button", "chat-chip", s);
     b.type = "button";
-    b.addEventListener("click", () => ask(s));
+    b.addEventListener("click", () => run(s));
     box.append(b);
   });
   log.append(box);
 }
 
 function greet() {
-  bubble("bot", t("chat.hello"));
+  const w = el("div", "chat-welcome");
+  w.append(el("p", "chat-welcome-title", t("chat.welcome_title")), el("p", "chat-welcome-text", t("chat.hello")));
   const slug = pageSlug();
-  const f = slug && kb ? kb.entries.find((e) => e.slug === slug) : null;
-  suggestions(f ? [t("chat.s_price"), t("chat.s_next"), t("chat.s_exam"), t("chat.s_bring")].map((s) => `${s} (${f.title})`)
-    : [t("chat.quick_vca"), t("chat.quick_ba4"), t("chat.quick_intra"), t("chat.quick_room")]);
+  const f = slug ? formationOf(slug) : null;
+  const tiles = el("div", "chat-tiles");
+  const tile = (ic, label, sub, run) => {
+    const b = el("button", "chat-tile");
+    b.type = "button";
+    b.append(icon(ic));
+    const txt = el("span", "chat-tile-txt");
+    txt.append(el("b", "", label));
+    if (sub) txt.append(el("small", "", sub));
+    b.append(txt);
+    b.addEventListener("click", run);
+    tiles.append(b);
+  };
+  if (f) {
+    const q = (k) => () => ask(`${t(k)} (${f.title})`);
+    tile("euro", t("chat.s_price"), f.title, q("chat.s_price"));
+    tile("calendar", t("chat.s_next"), f.title, q("chat.s_next"));
+    tile("award", t("chat.s_exam"), f.title, q("chat.s_exam"));
+    tile("target", t("chat.tile_find"), t("chat.tile_find_sub"), finder);
+  } else {
+    tile("target", t("chat.tile_find"), t("chat.tile_find_sub"), finder);
+    tile("calendar", t("chat.tile_dates"), t("chat.tile_dates_sub"), () => ask(t("chat.tile_dates_q")));
+    tile("building", t("chat.tile_team"), t("chat.tile_team_sub"), () => ask(t("chat.quick_intra")));
+    tile("phone", t("chat.tile_contact"), t("chat.tile_contact_sub"), () => ask(t("chat.tile_contact_q")));
+  }
+  w.append(tiles);
+  log.append(w);
 }
 
 /* ---------------- questions et réponses ---------------- */
@@ -429,6 +633,11 @@ function restore() {
 
 /** Ferme le panneau (deuxième clic sur le lanceur). */
 export function close() { hide(); }
+
+/** Pose une question venue d'ailleurs (palette de recherche : « Demander à l'assistant »). */
+export async function askQuestion(q) {
+  if (panel && !panel.hidden && String(q || "").trim()) await ask(q);
+}
 
 /** @param {HTMLElement} from  le lanceur (le focus y revient à la fermeture) */
 export async function open(from) {

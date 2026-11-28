@@ -56,20 +56,166 @@
     };
     burger.addEventListener("click", () => setOpen(burger.getAttribute("aria-expanded") !== "true"));
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && nav.classList.contains("is-open")) { setOpen(false); burger.focus(); } });
-    window.matchMedia("(min-width: 981px)").addEventListener("change", (m) => { if (m.matches) setOpen(false); });
+    window.matchMedia("(min-width: 1061px)").addEventListener("change", (m) => { if (m.matches) setOpen(false); });
   }
 
-  /* ---------- Méga-menu Formations ---------- */
-  const megaBtn = $(".nav-btn");
+  /* ---------- Méga-menu « Formations » et menu « Le centre » ----------
+     Ordinateur : ouverture au clic, ou au survol de la souris (avec délai) ; domaines au survol, au focus ou au clic ;
+     flèches haut/bas entre domaines, flèche droite vers les formations ; Échap ou clic à côté pour fermer.
+     Mobile (tiroir) : « Formations » et « Le centre » s'ouvrent en accordéon. */
+  const cfgAll = window.CFS_CONFIG || {};
+  const cat = window.CFS_CATALOG || {};
+  const desktop = window.matchMedia("(min-width: 1061px)");
+  const hoverable = window.matchMedia("(hover: hover) and (pointer: fine)");
+  const megaBtn = $(".nav-btn[aria-controls='mega']");
   const mega = $("#mega");
+  const backdrop = $("[data-mega-backdrop]");
+  const dropBtn = $(".nav-btn--drop");
+  const drop = dropBtn ? document.getElementById(dropBtn.getAttribute("aria-controls")) : null;
+  let hoverTimer = 0, leaveTimer = 0, nextDone = false;
+
+  const loadScript = (src) => new Promise((resolve, reject) => {
+    const el = document.createElement("script");
+    el.src = src; el.onload = resolve; el.onerror = reject;
+    document.head.appendChild(el);
+  });
+  /** Prochaines sessions (lues en direct par sessions.js, chargé à la demande) : 3 dates ouvertes, places restantes. */
+  const fillNext = () => {
+    const list = $("[data-mega-next]");
+    if (!list || nextDone) return;
+    nextDone = true;
+    const scripts = cfgAll.sessionsScripts || [];
+    const ready = window.CfsSessions ? Promise.resolve() : scripts.reduce((p, src) => p.then(() => loadScript(src)), Promise.resolve());
+    ready.then(() => window.CfsSessions.load()).then((res) => {
+      const S = window.CfsSessions;
+      const next = res.sessions.filter((x) => S.level(x) !== "closed").slice(0, 3);
+      list.textContent = "";
+      if (!next.length) {
+        const none = document.createElement("li");
+        none.className = "mega-next-none";
+        none.textContent = t("sess.none");
+        list.append(none);
+        return;
+      }
+      const loc = cat.locale || "fr-BE";
+      next.forEach((x) => {
+        const f = S.training(x.training) || { title: x.training, url: "#", bookable: false };
+        const lv = S.level(x);
+        const d = S.parse(x.date);
+        const a = document.createElement("a");
+        a.href = f.bookable && lv !== "full"
+          ? cat.routes.inscription + "?formation=" + encodeURIComponent(x.training) + "&session=" + encodeURIComponent(x.id)
+          : f.url;
+        const day = document.createElement("span");
+        day.className = "mega-day";
+        day.setAttribute("aria-hidden", "true");
+        const num = document.createElement("b");
+        num.textContent = String(d.getDate());
+        const mon = document.createElement("small");
+        mon.textContent = new Intl.DateTimeFormat(loc, { month: "short" }).format(d).replace(".", "");
+        day.append(num, mon);
+        const txt = document.createElement("span");
+        const title = document.createElement("span");
+        title.className = "mega-next-t";
+        title.textContent = f.title;
+        const meta = document.createElement("span");
+        meta.className = "mega-next-m is-" + lv;
+        meta.textContent = S.place(x.location).name + " · " + S.seatsText(x);
+        a.setAttribute("aria-label", f.title + ", " + S.dateText(x) + ", " + meta.textContent);
+        txt.append(title, meta);
+        a.append(day, txt);
+        const item = document.createElement("li");
+        item.append(a);
+        list.append(item);
+      });
+    }).catch(() => { list.textContent = ""; nextDone = false; });
+  };
+
+  const showBackdrop = (on) => { if (backdrop) backdrop.hidden = !(on && desktop.matches); };
+  const setDrop = (open) => {
+    if (!dropBtn || !drop) return;
+    dropBtn.setAttribute("aria-expanded", String(open));
+    drop.classList.toggle("is-open", open);
+  };
+  const setMega = (open) => {
+    if (!megaBtn || !mega) return;
+    megaBtn.setAttribute("aria-expanded", String(open));
+    mega.classList.toggle("is-open", open);
+    showBackdrop(open);
+    if (open) { setDrop(false); fillNext(); }
+  };
+  const activate = (slug) => {
+    $$("[data-mega-dom]", mega).forEach((btn) => btn.setAttribute("aria-expanded", String(btn.dataset.megaDom === slug)));
+    $$("[data-mega-panel]", mega).forEach((panel) => { panel.hidden = panel.dataset.megaPanel !== slug; });
+  };
+
   if (megaBtn && mega) {
-    const setMega = (open) => { megaBtn.setAttribute("aria-expanded", String(open)); mega.classList.toggle("is-open", open); };
     megaBtn.addEventListener("click", () => setMega(megaBtn.getAttribute("aria-expanded") !== "true"));
-    document.addEventListener("click", (e) => {
-      if (window.innerWidth > 980 && !mega.contains(e.target) && !megaBtn.contains(e.target)) setMega(false);
+    // Survol (souris, ordinateur) : ouverture après 120 ms, fermeture 250 ms après avoir quitté le menu
+    const megaLi = megaBtn.closest("li");
+    megaLi.addEventListener("pointerenter", (e) => {
+      if (e.pointerType !== "mouse" || !desktop.matches || !hoverable.matches) return;
+      clearTimeout(leaveTimer);
+      hoverTimer = setTimeout(() => setMega(true), 120);
     });
-    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && mega.classList.contains("is-open")) { setMega(false); megaBtn.focus(); } });
+    megaLi.addEventListener("pointerleave", (e) => {
+      if (e.pointerType !== "mouse" || !desktop.matches) return;
+      clearTimeout(hoverTimer);
+      leaveTimer = setTimeout(() => setMega(false), 250);
+    });
+    let domTimer = 0;
+    const doms = $$("[data-mega-dom]", mega);
+    doms.forEach((btn, i) => {
+      btn.addEventListener("click", () => activate(btn.dataset.megaDom));
+      btn.addEventListener("focus", () => activate(btn.dataset.megaDom));
+      btn.addEventListener("pointerenter", (e) => {
+        if (e.pointerType !== "mouse") return;
+        clearTimeout(domTimer);
+        domTimer = setTimeout(() => activate(btn.dataset.megaDom), 70);
+      });
+      btn.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          doms[(i + (e.key === "ArrowDown" ? 1 : doms.length - 1)) % doms.length].focus();
+        } else if (e.key === "ArrowRight") {
+          const first = $("#mega-p-" + btn.dataset.megaDom + " .mega-tr", mega);
+          if (first) { e.preventDefault(); first.focus(); }
+        }
+      });
+    });
+    $$(".mega-tr", mega).forEach((link) => link.addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowLeft") return;
+      const panel = link.closest("[data-mega-panel]");
+      const btn = panel ? doms.find((b) => b.dataset.megaDom === panel.dataset.megaPanel) : null;
+      if (btn) { e.preventDefault(); btn.focus(); }
+    }));
+    if (backdrop) backdrop.addEventListener("click", () => setMega(false));
+    desktop.addEventListener("change", () => showBackdrop(mega.classList.contains("is-open")));
   }
+  if (dropBtn && drop) {
+    dropBtn.addEventListener("click", () => setDrop(dropBtn.getAttribute("aria-expanded") !== "true"));
+    const dropLi = dropBtn.closest("li");
+    dropLi.addEventListener("pointerenter", (e) => { if (e.pointerType === "mouse" && desktop.matches && hoverable.matches) { setMega(false); setDrop(true); } });
+    dropLi.addEventListener("pointerleave", (e) => { if (e.pointerType === "mouse" && desktop.matches) setDrop(false); });
+  }
+  document.addEventListener("click", (e) => {
+    if (!desktop.matches) return;
+    if (mega && megaBtn && mega.classList.contains("is-open") && !mega.contains(e.target) && !megaBtn.contains(e.target)) setMega(false);
+    if (drop && dropBtn && drop.classList.contains("is-open") && !drop.contains(e.target) && !dropBtn.contains(e.target)) setDrop(false);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (mega && mega.classList.contains("is-open")) { setMega(false); megaBtn.focus(); }
+    if (drop && drop.classList.contains("is-open")) { setDrop(false); dropBtn.focus(); }
+  });
+  // Focus sorti d'un menu au clavier (Tab) : il se referme
+  [[megaBtn, setMega], [dropBtn, setDrop]].forEach(([btn, set]) => {
+    const li = btn && btn.closest("li");
+    if (!li) return;
+    li.addEventListener("focusout", (e) => {
+      if (desktop.matches && e.relatedTarget && !li.contains(e.relatedTarget)) set(false);
+    });
+  });
 
   /* ---------- Sélecteur de langue ---------- */
   const langSwitch = $(".lang-switch");
