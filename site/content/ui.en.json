@@ -633,5 +633,7 @@
   "chat.find_again": "Find another course",
   "chat.card_book_short": "Book",
   "chat.card_view": "View details",
-  "chat.card_for": "Who is it for?"
+  "chat.card_for": "Who is it for?",
+  "theme.dark": "Switch to dark mode",
+  "theme.light": "Switch to light mode"
 }

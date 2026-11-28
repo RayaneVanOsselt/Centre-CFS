@@ -361,6 +361,7 @@ def header_html(lang, active, alternates):
 {nav_html(lang, active)}
 <div class="header-actions">
 <a class="search-pill" href="{R.page("recherche", lang)}" data-search-open aria-haspopup="dialog" aria-label="{E(t(lang, "search.open"))}" title="{E(t(lang, "search.open"))} (/)">{icon("search")}<span>{E(t(lang, "search.pill"))}</span><kbd>/</kbd></a>
+<button class="theme-toggle" type="button" data-theme-toggle aria-label="{E(t(lang, "theme.dark"))}" title="{E(t(lang, "theme.dark"))}"><span class="i-moon">{icon("moon")}</span><span class="i-sun">{icon("sun")}</span></button>
 {lang_switch(lang, alternates)}
 {account_link}<a class="tel-link" href="{tel()}" aria-label="{E(t(lang, "nav.call", phone=C.SITE["phone_display"]))}">{icon("phone")}<span>{C.SITE["phone_display"]}</span></a>
 <a class="btn btn--contour btn--petit header-quote" href="{R.page("contact", lang)}?type=devis">{E(t(lang, "nav.quote"))}</a>
@@ -558,9 +559,12 @@ def page(lang, path, title, desc, body, *, alternates=None, active=None, jsonld=
 <meta name="robots" content="{robots}">
 <meta http-equiv="Content-Security-Policy" content="{csp(meta=True)}">
 <meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="color-scheme" content="light dark">
+<script src="{asset("/assets/js/theme.js")}"></script>
 <link rel="canonical" href="{url}">
 {hreflang}
-<meta name="theme-color" content="#0D4A8C">
+<meta name="theme-color" content="#0D4A8C" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0B1524" media="(prefers-color-scheme: dark)">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="{R.OG_LOCALE[lang]}">
 <meta property="og:site_name" content="Centre CFS">
@@ -1553,7 +1557,7 @@ def build_account_pages(lang):
 # ───────────────────────────── fichiers techniques
 DATA_V = {}
 KB_V = {}  # empreintes des bases de connaissances de l'assistant (cache)
-JS_KEYS = ("lang.", "nav.", "common.", "cta.", "loc.", "sess.", "availability.", "search.", "form.", "reg.", "pay.", "acc.", "chat.", "intro.", "footer.")
+JS_KEYS = ("lang.", "nav.", "common.", "cta.", "loc.", "sess.", "availability.", "search.", "form.", "reg.", "pay.", "acc.", "chat.", "intro.", "footer.", "theme.")
 
 
 def site_data(lang):

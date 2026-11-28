@@ -633,5 +633,7 @@
   "chat.find_again": "Chercher une autre formation",
   "chat.card_book_short": "Réserver",
   "chat.card_view": "Voir la fiche",
-  "chat.card_for": "Pour qui ?"
+  "chat.card_for": "Pour qui ?",
+  "theme.dark": "Passer en mode sombre",
+  "theme.light": "Passer en mode clair"
 }
