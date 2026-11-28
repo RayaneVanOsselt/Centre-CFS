@@ -92,8 +92,19 @@ BASE = base_path(cfg("BASE_PATH"))
 # statique (GitHub Pages) ne peut pas les faire tourner. Le code reste en place ; chaque option s'active par une variable.
 # WORKER_API=1 : le site est servi par le Worker Cloudflare (même domaine) et utilise son API /api/*.
 API = cfg("WORKER_API", "0") == "1"
+# « Tout chez Google » (DECISIONS.md D-018) : le site parle directement à l'application Web de la feuille Google
+# (formulaires, agenda en direct, réservations sur facture), sans Worker. Adresse publique « …/exec » du déploiement.
+GOOGLE = cfg("GOOGLE_SCRIPT_URL", "").strip()
+if GOOGLE and API:
+    sys.exit("GOOGLE_SCRIPT_URL et WORKER_API=1 s'excluent : choisir l'accès direct à la feuille OU le Worker")
+if GOOGLE and not (re.match(r"^https://script\.google\.com/macros/s/[A-Za-z0-9_-]{20,200}/exec$", GOOGLE)
+                   or (DEV and re.match(r"^/[A-Za-z0-9/_-]+$", GOOGLE))):
+    sys.exit(f"Configuration invalide : GOOGLE_SCRIPT_URL = {GOOGLE} (adresse https://script.google.com/macros/s/…/exec)")
 PUBLIC = {
-    "api": API,
+    # Envoi réel des demandes (Worker ou feuille Google en direct) ; sinon le formulaire prépare un e-mail
+    "api": API or bool(GOOGLE),
+    # Accès direct à la feuille : corps JSON envoyé en text/plain (requête « simple », sans pré-vérification CORS)
+    "direct": bool(GOOGLE),
     "siteUrl": cfg("SITE_URL", "http://localhost:8787" if DEV else C.SITE["url"]).rstrip("/"),
     "basePath": BASE,
     "supabaseUrl": cfg("SUPABASE_URL"),
@@ -104,11 +115,11 @@ PUBLIC = {
     "accounts": cfg("ACCOUNTS_ENABLED", "0") == "1",
     "onlinePayment": cfg("ONLINE_PAYMENT_ENABLED", "0") == "1",
     # Adresse qui reçoit les formulaires en JSON (Worker, Formspree…). Vide : le formulaire prépare un e-mail.
-    "formEndpoint": cfg("FORM_ENDPOINT", "/api/contact" if API else ""),
+    "formEndpoint": cfg("FORM_ENDPOINT", "/api/contact" if API else f"{GOOGLE}?route=contact" if GOOGLE else ""),
     # Liste publique des sessions avec les places en direct (JSON { status: "ok", sessions: [...] }). Vide : fichier de secours.
-    "sessionsUrl": cfg("SESSIONS_PUBLIC_URL", "/api/sessions" if API else ""),
+    "sessionsUrl": cfg("SESSIONS_PUBLIC_URL", "/api/sessions" if API else f"{GOOGLE}?route=sessions" if GOOGLE else ""),
     # Réservations (Worker) : places vérifiées sous verrou par la feuille, montant calculé par la feuille
-    "registrationEndpoint": "/api/registrations" if API else "",
+    "registrationEndpoint": "/api/registrations" if API else f"{GOOGLE}?route=registration" if GOOGLE else "",
     "email": C.SITE["email"],
     # Destinataire des demandes préparées par e-mail (mode sans FORM_ENDPOINT). Par défaut : l'adresse du centre.
     "formEmail": cfg("FORM_EMAIL", C.SITE["email"]),
@@ -271,7 +282,6 @@ def asset(path):
 
 
 # ───────────────────────────── en-tête, pied de page
-NAV = [("agenda", "nav.agenda"), ("entreprises", "nav.entreprises"), ("salles", "nav.salles"), ("centre", "nav.centre"), ("contact", "nav.contact")]
 
 
 def lang_switch(lang, alternates):
@@ -287,24 +297,56 @@ def lang_switch(lang, alternates):
 
 
 def nav_html(lang, active):
-    cols = []
-    for d in C.DOMAINES:
+    """Navigation principale.
+    Ordinateur : « Formations » ouvre un méga-menu (domaines à gauche, formations du domaine survolé avec durée et tarif,
+    prochaines sessions en direct et encart « en entreprise » à droite) ; « Le centre » regroupe les pages de service.
+    Mobile : tiroir plein écran (recherche, tuiles des domaines, liens, appel et devis)."""
+    doms, panels, tiles = [], [], []
+    for i, d in enumerate(C.DOMAINES):
         dd = domain(d["slug"], lang)
-        lis = "".join(f'<li><a href="{f["url"]}">{E(f["title"])}</a></li>' for f in dd["formations"])
-        cols.append(f'<div class="mega-col"><h3>{dsign(d["slug"])}<a href="{dd["url"]}">{E(dd["name"])}</a></h3><ul>{lis}</ul></div>')
-    links = []
-    for key, label in NAV:
-        cur = ' aria-current="page"' if active == key else ""
-        links.append(f'<li><a href="{R.page(key, lang)}"{cur}>{E(t(lang, label))}</a></li>')
-    cur_f = ' aria-current="page"' if active == "formations" else ""
+        n = len(dd["formations"])
+        count = t(lang, "common.formation_count_one" if n == 1 else "common.formation_count", n=n)
+        first = i == 0
+        doms.append(f'<li><button class="mega-dom" type="button" data-mega-dom="{d["slug"]}" aria-controls="mega-p-{d["slug"]}" '
+                    f'aria-expanded="{"true" if first else "false"}">{dsign(d["slug"])}<span><b>{E(dd["name"])}</b><small>{E(count)}</small></span>'
+                    f'{icon("chevron-right")}</button></li>')
+        trs = "".join(
+            f'<li><a class="mega-tr" href="{f["url"]}"><span class="mega-tr-t">{E(f["title"])}</span>'
+            f'<span class="mega-tr-m">{E(" · ".join(x for x in (f["duree"], price_text(f, lang)) if x))}</span>{icon("arrow")}</a></li>'
+            for f in dd["formations"])
+        panels.append(f'<div class="mega-panel mega-panel--{d["color"]}" id="mega-p-{d["slug"]}" data-mega-panel="{d["slug"]}"{"" if first else " hidden"}>'
+                      f'<div class="mega-panel-head"><div><h3>{E(dd["long"])}</h3><p>{E(dd["intro"])}</p></div>'
+                      f'<a class="lien-fleche" href="{dd["url"]}">{E(t(lang, "nav.see_domain"))}</a></div><ul class="mega-trs">{trs}</ul></div>')
+        tiles.append(f'<li><a class="mega-tile" href="{dd["url"]}">{dsign(d["slug"])}<span><b>{E(dd["name"])}</b><small>{E(count)}</small></span></a></li>')
+    cur = lambda key: ' aria-current="page"' if active == key else ""
+    centre = [("centre", "footer.about_link"), ("salles", "nav.salles"), ("langues", "footer.languages"), ("actualites", "footer.news"), ("faq", "footer.faq")]
+    centre_items = "".join(f'<li><a href="{R.page(k, lang)}"{cur(k)}>{E(t(lang, lab))}</a></li>' for k, lab in centre)
+    centre_on = ' class="is-current"' if active in [k for k, _ in centre] else ""
     account_btn = (f'<a class="btn btn--contour" href="{R.page("compte", lang)}">{icon("user")} {E(t(lang, "nav.account"))}</a>'
                    if PUBLIC["accounts"] else "")
     return f'''<nav class="nav" id="nav" aria-label="{E(t(lang, "nav.main"))}">
+<a class="nav-search" href="{R.page("recherche", lang)}" data-search-open>{icon("search")}<span>{E(t(lang, "search.pill"))}</span></a>
 <ul class="nav-list">
-<li class="has-mega"><button class="nav-btn" type="button" aria-expanded="false" aria-controls="mega">{E(t(lang, "nav.formations"))}{icon("chevron")}</button>
-<div class="mega" id="mega"><div class="wrap"><div class="mega-grid">{"".join(cols)}</div>
-<div class="mega-foot"><a class="btn btn--bleu btn--petit" href="{R.page("formations", lang)}"{cur_f}>{E(t(lang, "nav.catalog_all"))}</a><p>{E(t(lang, "nav.mega_note"))}</p></div></div></div></li>
-{"".join(links)}
+<li class="has-mega"><button class="nav-btn" type="button" aria-expanded="false" aria-controls="mega"{' data-current' if active == "formations" else ""}>{E(t(lang, "nav.formations"))}{icon("chevron")}</button>
+<div class="mega" id="mega">
+<div class="wrap mega-inner">
+<ul class="mega-doms">{"".join(doms)}</ul>
+<div class="mega-panels">{"".join(panels)}</div>
+<aside class="mega-aside">
+<section class="mega-card mega-card--next"><h3>{icon("calendar")}{E(t(lang, "sess.next"))}</h3><ol class="mega-next" data-mega-next><li class="mega-next-wait">{E(t(lang, "common.loading"))}</li></ol>
+<a class="lien-fleche" href="{R.page("agenda", lang)}">{E(t(lang, "footer.agenda"))}</a></section>
+<section class="mega-card mega-card--intra"><h3>{icon("users")}{E(t(lang, "nav.intra_title"))}</h3><p>{E(t(lang, "nav.mega_note"))}</p>
+<a class="btn btn--bleu btn--petit" href="{R.page("contact", lang)}?type=devis">{E(t(lang, "nav.quote"))}</a></section>
+</aside>
+</div>
+<ul class="mega-tiles">{"".join(tiles)}</ul>
+<div class="mega-foot"><div class="wrap"><a class="lien-fleche" href="{R.page("formations", lang)}"{cur("formations")}>{E(t(lang, "nav.catalog_all"))}</a></div></div>
+</div></li>
+<li><a href="{R.page("agenda", lang)}"{cur("agenda")}>{E(t(lang, "nav.agenda"))}</a></li>
+<li><a href="{R.page("entreprises", lang)}"{cur("entreprises")}>{E(t(lang, "nav.entreprises"))}</a></li>
+<li class="has-drop"><button class="nav-btn nav-btn--drop" type="button" aria-expanded="false" aria-controls="drop-centre"{centre_on}>{E(t(lang, "nav.centre"))}{icon("chevron")}</button>
+<ul class="drop" id="drop-centre">{centre_items}</ul></li>
+<li><a href="{R.page("contact", lang)}"{cur("contact")}>{E(t(lang, "nav.contact"))}</a></li>
 </ul>
 <div class="nav-mobile-cta"><a class="btn btn--bleu" href="{R.page("contact", lang)}?type=devis">{E(t(lang, "nav.quote"))}</a>{account_btn}<a class="btn btn--contour" href="{tel()}">{icon("phone")} {C.SITE["phone_display"]}</a></div>
 </nav>'''
@@ -318,14 +360,16 @@ def header_html(lang, active, alternates):
 <a class="logo" href="{R.page("home", lang)}" aria-label="{E(t(lang, "nav.home"))}">{LOGO_HEADER}</a>
 {nav_html(lang, active)}
 <div class="header-actions">
-<a class="icon-link search-btn" href="{R.page("recherche", lang)}" data-search-open aria-haspopup="dialog" aria-label="{E(t(lang, "search.open"))}" title="{E(t(lang, "search.open"))} (/)">{icon("search")}</a>
+<a class="search-pill" href="{R.page("recherche", lang)}" data-search-open aria-haspopup="dialog" aria-label="{E(t(lang, "search.open"))}" title="{E(t(lang, "search.open"))} (/)">{icon("search")}<span>{E(t(lang, "search.pill"))}</span><kbd>/</kbd></a>
+<button class="theme-toggle" type="button" data-theme-toggle aria-label="{E(t(lang, "theme.dark"))}" title="{E(t(lang, "theme.dark"))}"><span class="i-moon">{icon("moon")}</span><span class="i-sun">{icon("sun")}</span></button>
 {lang_switch(lang, alternates)}
 {account_link}<a class="tel-link" href="{tel()}" aria-label="{E(t(lang, "nav.call", phone=C.SITE["phone_display"]))}">{icon("phone")}<span>{C.SITE["phone_display"]}</span></a>
 <a class="btn btn--contour btn--petit header-quote" href="{R.page("contact", lang)}?type=devis">{E(t(lang, "nav.quote"))}</a>
 <button class="burger" type="button" aria-expanded="false" aria-controls="nav" aria-label="{E(t(lang, "nav.open_menu"))}" data-label-open="{E(t(lang, "nav.open_menu"))}" data-label-close="{E(t(lang, "nav.close_menu"))}"><span class="i-open">{icon("menu")}</span><span class="i-close" hidden>{icon("close")}</span></button>
 </div>
 </div>
-</header>'''
+</header>
+<div class="mega-backdrop" data-mega-backdrop hidden></div>'''
 
 
 def footer_html(lang):
@@ -515,9 +559,12 @@ def page(lang, path, title, desc, body, *, alternates=None, active=None, jsonld=
 <meta name="robots" content="{robots}">
 <meta http-equiv="Content-Security-Policy" content="{csp(meta=True)}">
 <meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="color-scheme" content="light dark">
+<script src="{asset("/assets/js/theme.js")}"></script>
 <link rel="canonical" href="{url}">
 {hreflang}
-<meta name="theme-color" content="#0D4A8C">
+<meta name="theme-color" content="#0D4A8C" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0B1524" media="(prefers-color-scheme: dark)">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="{R.OG_LOCALE[lang]}">
 <meta property="og:site_name" content="Centre CFS">
@@ -1138,7 +1185,7 @@ def field(lang, fid, label, typ="text", required=False, auto="", extra="", error
 
 
 def nojs_form(lang):
-    """Avec le Worker, le formulaire fonctionne aussi sans JavaScript : envoi classique vers /api/contact, qui répond
+    """Avec le Worker ou la feuille en direct, le formulaire fonctionne aussi sans JavaScript : envoi classique, réponse
     par une page de confirmation dans la bonne langue. La langue voyage dans un champ caché ajouté après l'ouverture."""
     if not PUBLIC["api"]:
         return ""
@@ -1510,7 +1557,7 @@ def build_account_pages(lang):
 # ───────────────────────────── fichiers techniques
 DATA_V = {}
 KB_V = {}  # empreintes des bases de connaissances de l'assistant (cache)
-JS_KEYS = ("lang.", "nav.", "common.", "cta.", "loc.", "sess.", "availability.", "search.", "form.", "reg.", "pay.", "acc.", "chat.", "intro.")
+JS_KEYS = ("lang.", "nav.", "common.", "cta.", "loc.", "sess.", "availability.", "search.", "form.", "reg.", "pay.", "acc.", "chat.", "intro.", "footer.", "theme.")
 
 
 def site_data(lang):
@@ -1529,12 +1576,15 @@ def site_data(lang):
         "alternates": {lg: BASE + R.page("home", lg) for lg in LANGS},
         "langNames": {lg: UI[lg]["lang.name"] for lg in LANGS},
         "bannerText": {lg: {"text": UI[lg]["lang.banner"], "go": UI[lg]["lang.banner_go"], "close": UI[lg]["lang.banner_close"]} for lg in LANGS},
-        "icons": {n: icon(n) for n in ("pin", "clock", "globe", "calendar", "arrow", "mail", "phone", "users", "check-circle", "alert", "info", "doc", "close")},
+        "icons": {n: icon(n) for n in ("pin", "clock", "globe", "calendar", "arrow", "mail", "phone", "users", "check-circle", "alert", "info", "doc", "close",
+                                        "search", "chevron-right", "send", "chat", "euro", "award", "hourglass", "target", "building", "user", "check")},
     }
     strings = {k: v for k, v in UI[lang].items() if k.startswith(JS_KEYS)}
     cfg_pub = {k: v for k, v in PUBLIC.items() if k not in ("supabaseUrl", "supabaseKey") or PUBLIC["accounts"]}
     cfg_pub["dev"] = DEV
     cfg_pub["hero3d"] = BASE + asset("/assets/js/hero-3d.js")  # module chargé à la demande par main.js (accueil)
+    # Prochaines sessions du méga-menu : liste lue par sessions.js, chargé à la demande à l'ouverture du menu
+    cfg_pub["sessionsScripts"] = [BASE + asset("/assets/js/sessions-data.js"), BASE + asset("/assets/js/sessions.js")]
     # Recherche du site : module et base de connaissances (même base que l'assistant) chargés à la demande par main.js
     cfg_pub["search"] = {"module": BASE + asset("/assets/js/search/search.js"), "kb": BASE + f"/assets/data/kb.{lang}.json?v={KB_V.get(lang, '')}",
                          "page": BASE + R.page("recherche", lang)}
@@ -1610,10 +1660,14 @@ def csp(meta=False):
     if PUBLIC["accounts"] and PUBLIC["supabaseUrl"]:
         connect += [PUBLIC["supabaseUrl"], PUBLIC["supabaseUrl"].replace("https://", "wss://").replace("http://", "ws://")]
     connect += [o for o in (origin(PUBLIC["formEndpoint"]), origin(PUBLIC["sessionsUrl"])) if o and o not in connect]
+    # Accès direct à la feuille : l'application Web Google répond par une redirection vers script.googleusercontent.com
+    google = [o for o in ("https://script.google.com", "https://script.googleusercontent.com") if GOOGLE.startswith("https://")]
+    connect = list(dict.fromkeys(connect + google))  # sans doublon, ordre gardé
+    forms = " ".join(["'self'"] + google)
     turnstile = bool(PUBLIC["turnstileSiteKey"])
     cf = " https://challenges.cloudflare.com" if turnstile else ""
     return (f"default-src 'self'; script-src 'self'{cf}; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; "
-            f"connect-src {' '.join(connect)}; " + (f"frame-src{cf}; " if turnstile else "") + "form-action 'self'; "
+            f"connect-src {' '.join(connect)}; " + (f"frame-src{cf}; " if turnstile else "") + f"form-action {forms}; "
             + ("" if meta else "frame-ancestors 'none'; ")
             + "base-uri 'self'; object-src 'none'; manifest-src 'self'" + ("" if DEV else "; upgrade-insecure-requests"))
 

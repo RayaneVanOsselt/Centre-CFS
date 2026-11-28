@@ -83,8 +83,29 @@
       ch.postMessage({ nonce: m.nonce, redirectUrl: p.redirectUrl });
     }
   });
+  // Accès direct (D-018) : le site construit avec GOOGLE_SCRIPT_URL=/gas/exec parle au moteur Apps Script sans Worker,
+  // comme à https://script.google.com/macros/s/…/exec (paramètres d'adresse + formulaire, corps text/plain).
+  function gas(d) {
+    const url = new URL(d.url), parameter = Object.fromEntries(url.searchParams);
+    let out;
+    if (d.method === "GET") out = b.G.ctx.doGet({ parameter });
+    else {
+      const type = (d.headers.find(([k]) => k.toLowerCase() === "content-type") || [])[1] || "";
+      if (/x-www-form-urlencoded/.test(type)) Object.assign(parameter, Object.fromEntries(new URLSearchParams(d.body || "")));
+      out = b.G.ctx.doPost({ parameter, postData: { type, contents: d.body || "" } });
+    }
+    return out.html !== undefined
+      ? { status: 200, headers: [["Content-Type", "text/html; charset=utf-8"]], body: out.html }
+      : { status: 200, headers: [["Content-Type", "application/json"]], body: out.text };
+  }
   navigator.serviceWorker.addEventListener("message", async (ev) => {
     const d = ev.data, port = ev.ports[0];
+    if (new URL(d.url).pathname.endsWith("/gas/exec")) {
+      const r = gas(d);
+      log.textContent = `${new Date().toLocaleTimeString()}  ${d.method} (Google direct) ${new URL(d.url).search} → ${r.status}\n` + log.textContent;
+      port.postMessage(r);
+      return;
+    }
     const init = { method: d.method, headers: d.headers };
     if (d.body != null) init.body = d.body;
     const res = await call(new Request(d.url, init));

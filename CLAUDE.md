@@ -25,8 +25,11 @@ Mission complète : `PROMPT_CLAUDE_CODE.md` (lecture seule). Avancement : `docs/
 - La **feuille Google « Réservations – Centre CFS »** est la source unique des sessions, places, réservations et demandes.
   **Jamais de date de session ni de nombre de places dans le HTML** : tout est lu par `sessions.js`.
 - Places restantes = capacité − réservations qui comptent, **recalculées à chaque lecture**, jamais saisies ni stockées.
-- Navigateur → Worker Cloudflare → Apps Script **signé HMAC**. Le navigateur n'appelle jamais la feuille.
-- E-mails : **EmailJS côté serveur uniquement** (clé privée), jamais depuis le navigateur.
+- Navigateur → Worker Cloudflare → Apps Script **signé HMAC**. Exception validée par Rayane (D-018, « tout chez
+  Google ») : sans Worker, le navigateur appelle seulement les 3 routes publiques de l'Apps Script (sessions, demandes,
+  réservation sur facture), revalidées et limitées par la feuille ; tout le reste reste signé.
+- E-mails : **côté serveur uniquement** (Gmail du compte de la feuille, ou EmailJS avec clé privée), jamais depuis le
+  navigateur.
 - Mots de passe : **Supabase Auth uniquement**.
 - Aucun secret hors de `.dev.vars` (jamais commité), des secrets Cloudflare et des propriétés du script Google.
 - « Merci… Référence » seulement si la réponse du serveur contient `ok: true`.

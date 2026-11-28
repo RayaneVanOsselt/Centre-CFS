@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Recopie les textes des e-mails (clés « email.* » de site/content/ui.{fr,nl,en}.json) et le nom des formations
+"""Recopie les textes des e-mails (clés « email.* » de site/content/ui.{fr,nl,en}.json), les messages des routes
+publiques (PAGE_KEYS) et le nom des formations
 dans les 3 langues dans le bloc « @i18n » d'apps-script/reservations.gs.
 
 Une seule source pour les textes : le site, le Worker et la feuille Google utilisent les mêmes fichiers.
@@ -15,13 +16,16 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "site"))
 GS = os.path.join(ROOT, "apps-script", "reservations.gs")
 LANGS = ("fr", "nl", "en")
+# Messages des routes publiques (accès direct du site, D-018) : réponses et page sans JavaScript, comme le Worker
+PAGE_KEYS = {"form.sent_title", "form.sent_text", "form.error_title", "form.error_text", "form.back", "form.fix_errors",
+             "form.rate_limited", "reg.busy", "reg.full", "reg.unavailable", "reg.closed", "reg.session_unavailable"}
 
 
 def block():
     i18n = {}
     for lang in LANGS:
         ui = json.load(open(os.path.join(ROOT, "site", "content", f"ui.{lang}.json"), encoding="utf-8"))
-        i18n[lang] = {k: v for k, v in sorted(ui.items()) if k.startswith("email.")}
+        i18n[lang] = {k: v for k, v in sorted(ui.items()) if k.startswith("email.") or k in PAGE_KEYS}
     names = {}
     mods = {lang: importlib.import_module(f"content.{lang}") for lang in LANGS}
     for slug in mods["fr"].FORMATIONS:

@@ -154,9 +154,7 @@
     if (btn) { btn.disabled = true; btn.textContent = t("form.sending"); }
     var token = F.turnstileToken(form);
     if (token) payload.turnstileToken = token;
-    return root.fetch(cfg.registrationEndpoint || "/api/registrations", {
-      method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(payload)
-    }).then(function (res) {
+    return root.fetch(cfg.registrationEndpoint || "/api/registrations", F.postInit(payload)).then(function (res) {
       return res.json().catch(function () { return {}; });
     }).then(function (data) {
       if (s && typeof data.remaining === "number") S.apply(s.id, data.remaining, data.capacity);

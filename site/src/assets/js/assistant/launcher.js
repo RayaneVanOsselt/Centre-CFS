@@ -92,6 +92,17 @@
     root.addEventListener("load", function () { whenIdle(function () { load().catch(function () {}); }, 4000); });
   }
   ["pointerenter", "focus", "touchstart"].forEach(function (ev) { btn.addEventListener(ev, function () { load().catch(function () {}); }, { passive: true, once: true }); });
+  // Palette de recherche : « Demander à l'assistant » ouvre le panneau et pose la question
+  document.addEventListener("cfs:assistant-ask", function (e) {
+    var q = e && e.detail && e.detail.q;
+    hideBubble();
+    markSeen();
+    btn.hidden = false;
+    load().then(function (m) {
+      var opened = btn.getAttribute("aria-expanded") === "true" ? Promise.resolve() : m.open(btn);
+      return opened.then(function () { if (m.askQuestion) return m.askQuestion(q); });
+    }).catch(function () { /* l'assistant reste accessible par son bouton */ });
+  });
   btn.addEventListener("click", function () {
     hideBubble();
     markSeen();

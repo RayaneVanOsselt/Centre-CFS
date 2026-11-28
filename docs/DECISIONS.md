@@ -190,3 +190,24 @@ Une entrée par décision : contexte, options, choix, conséquences. Statut : **
 - **Conséquences** : 0 € ; environ 250 réponses de l'IA par jour, plafond 200, puis réponse locale. Seul sous-traitant
   de l'IA : Cloudflare (déjà hébergeur). Rien à configurer à la publication.
 
+## D-018 : « tout chez Google », sans Cloudflare (décision de Rayane, 27/11/2026)
+
+- **Contexte** : la mise en service de Cloudflare (compte, jeton, secrets GitHub et Worker, EmailJS) est jugée trop
+  compliquée. Rayane demande une autre solution gratuite. Le site est déjà en ligne sur GitHub Pages et la feuille
+  « Réservations – Centre CFS » est déjà installée et déployée.
+- **Options** : (a) garder Cloudflare et guider pas à pas ; (b) Netlify ou Vercel (aussi complexes, serveur à
+  réécrire) ; (c) le site appelle directement l'application Web de la feuille, qui revalide tout et envoie les
+  e-mails par Gmail.
+- **Choix** : (c). L'Apps Script (v3.0.0) ouvre trois routes publiques sans signature : `?route=sessions` (liste
+  publique, aucune donnée personnelle), `?route=contact` et `?route=registration` (réservation sur facture pour une
+  entreprise avec TVA, sinon demande d'inscription). Mêmes contrôles que le Worker, faits par la feuille : validation,
+  champ piège, délai minimum, limites par adresse et globales, doublons, écriture sous verrou avant l'e-mail. Réponses
+  au format du Worker. E-mails par MailApp (Gmail du compte propriétaire) quand EmailJS n'est pas configuré. Toutes les
+  autres actions restent signées HMAC : le Worker peut être ajouté plus tard sans rien perdre. Site : variable
+  `GOOGLE_SCRIPT_URL` (dans `pages.yml`), corps JSON en `text/plain` (requête « simple », Apps Script ne traite pas la
+  pré-vérification CORS), CSP élargie à `script.google.com` et `script.googleusercontent.com`.
+- **Conséquences** : 0 € et une seule étape de mise en service. Pas d'IA générative pour l'assistant (réponses vérifiées
+  du cœur local), pas de paiement en ligne ni de comptes, protection anti-robots sans limite par adresse IP (Google ne
+  la transmet pas), réponses en 1 à 3 secondes. L'adresse `/exec` devient publique (dans les pages) : sans danger, car
+  seules les trois routes contrôlées y répondent sans signature. Règle d'architecture de `CLAUDE.md` mise à jour.
+

@@ -183,9 +183,7 @@
     var payload = Object.assign({ form: o.kind, requestId: requestId(form), lang: I.lang(), page: location.pathname, website: "", elapsedMs: Date.now() - o.startedAt }, o.payload);
     var token = turnstileToken(form);
     if (token) payload.turnstileToken = token;
-    return root.fetch(cfg.formEndpoint, {
-      method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(payload)
-    }).then(function (res) {
+    return root.fetch(cfg.formEndpoint, api.postInit(payload)).then(function (res) {
       return res.json().catch(function () { return {}; }).then(function (data) {
         if (data.ok !== true) throw { code: res.status === 429 ? "rate" : "error", message: data.message, fields: data.fields };
         delete form.dataset.requestId;
@@ -252,7 +250,14 @@
   var api = root.CfsForms = { validate: validate, check: check, liveCheck: liveCheck, showStatus: showStatus, deliver: deliver, lines: lines,
     optionText: optionText, pageUrl: pageUrl, turnstile: turnstile, turnstileToken: turnstileToken, requestId: requestId, markServerFields: markServerFields,
     /** Ouvre la messagerie du visiteur (remplaçable dans les tests). */
-    openMail: function (url) { root.location.href = url; } };
+    openMail: function (url) { root.location.href = url; },
+    /** Requête d'envoi : JSON pour le Worker ; text/plain sans cookie pour la feuille Google en direct (requête
+        « simple », sans pré-vérification CORS, que l'application Web Google ne traite pas). */
+    postInit: function (payload) {
+      return cfg.direct
+        ? { method: "POST", credentials: "omit", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) }
+        : { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(payload) };
+    } };
 
   $$('form[data-api-form="contact"]').forEach(contactForm);
 })(typeof self !== "undefined" ? self : this);

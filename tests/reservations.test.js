@@ -542,3 +542,129 @@ test("e-mails au client (mission 7.6) : réservation sur facture reçue, paiemen
   assert.equal(recu[0]["Copie cachée"], "info@centrecfs.be");
   assert.equal(mails().filter((m) => m["Type"] === "Réservation (facture)").length, 1, "aucun e-mail « facture » pour un paiement en ligne");
 });
+
+/* ------------------------------------------------------------------ accès direct du site (« tout chez Google », D-018) */
+/* Le site publié appelle la feuille sans Worker : 3 routes publiques revalidées ici ; e-mails par Gmail (MailApp). */
+const GMAIL = { EMAILJS_PRIVATE_KEY: "" }; // EmailJS incomplet → e-mails par le Gmail du compte propriétaire
+const pub = (G, route, body) =>
+  JSON.parse(G.ctx.doPost({ parameter: { route }, postData: { type: "text/plain", contents: JSON.stringify(body) } }).text);
+let pubSeq = 0;
+const contact = (extra = {}) => ({
+  form: "contact", requestId: "pub-request-" + String(++pubSeq).padStart(6, "0"), lang: "fr", name: "Marie Dupont",
+  email: "marie@exemple.be", phone: "0470 00 00 00", message: "Bonjour, une question sur le VCA.", consent: true,
+  page: "/contact/", website: "", elapsedMs: 8000, ...extra,
+});
+const registration = (extra = {}) => ({
+  requestId: "pub-reg-" + String(++pubSeq).padStart(6, "0"), lang: "fr", training: "vca-base", sessionId: SESSION,
+  payMode: "invoice", trainingLanguage: "fr", participants: [{ firstName: "Jean", lastName: "Peeters", email: "" }], notes: "",
+  customer: { firstName: "Marie", lastName: "Dupont", email: "marie@exemple.be", phone: "0470 00 00 00" },
+  billing: { type: "company", company: "Exemple SA", vat: "BE0403170701", street: "Rue 1", zip: "4000", city: "Liège", country: "BE" },
+  terms: true, website: "", elapsedMs: 9000, ...extra,
+});
+
+test("accès direct : liste publique sans signature (format du Worker, aucune donnée personnelle) ; le reste exige la signature", () => {
+  const G = sheetGas();
+  G.post(order(2, { payMode: "invoice", billing: { type: "company", company: "Q", vat: "BE0403170701", street: "a", zip: "1", city: "b" } }));
+  const out = JSON.parse(G.ctx.doGet({ parameter: { route: "sessions" } }).text);
+  assert.equal(out.ok, true);
+  const s = out.sessions.find((x) => x.id === SESSION);
+  assert.equal(s.capacity, 10);
+  assert.equal(s.remaining, 8);
+  assert.equal(s.seatsLeft, 8);
+  assert.equal(s.state, "open");
+  assert.equal(s.formation, "vca-base");
+  assert.doesNotMatch(JSON.stringify(out), /Dupont|exemple\.be|Peeters/, "aucune donnée personnelle");
+  const only = JSON.parse(G.ctx.doGet({ parameter: { route: "sessions", formation: "ba4" } }).text);
+  assert.ok(only.sessions.every((x) => x.training === "ba4"));
+  assert.equal(JSON.parse(G.ctx.doGet({ parameter: { action: "sessions" } }).text).status, "unauthorized", "l'ancienne lecture reste signée");
+  assert.equal(pub(G, "cancel", { ref: "CFS-2026-ABCDE" }).code, "INVALID", "aucune autre route publique");
+  assert.equal(G.post(null, { payload: JSON.stringify({ action: "cancel" }) }).status, "unauthorized", "actions sensibles toujours signées");
+});
+
+test("accès direct : demande écrite AVANT l'e-mail (Gmail), « Répondre » au visiteur, doublon sans double envoi, robots ignorés", () => {
+  const G = sheetGas({ props: GMAIL });
+  const c = contact();
+  const r = pub(G, "contact", c);
+  assert.equal(r.ok, true);
+  assert.match(r.reference, /^CFD-2026-[A-Z2-9]{5,6}$/);
+  const rows = G.sheet("Demandes").records();
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]["Référence"], r.reference);
+  assert.equal(rows[0]["Formulaire"], "Contact");
+  assert.equal(G.mails.length, 1, "un e-mail à l'équipe");
+  assert.equal(G.mails[0].to, "info@centrecfs.be");
+  assert.equal(G.mails[0].replyTo, "marie@exemple.be");
+  assert.ok(G.mails[0].subject.includes(r.reference));
+  assert.match(G.mails[0].htmlBody, /une question sur le VCA/);
+  assert.equal(pub(G, "contact", c).reference, r.reference, "même requestId : même référence");
+  assert.equal(G.sheet("Demandes").records().length, 1);
+  assert.equal(G.mails.length, 1, "aucun second e-mail");
+  assert.equal(pub(G, "contact", contact({ website: "http://spam.example" })).ok, true);
+  assert.equal(pub(G, "contact", contact({ elapsedMs: 300 })).ok, true);
+  assert.equal(G.sheet("Demandes").records().length, 1, "robots : rien n'est enregistré");
+  const bad = pub(G, "contact", contact({ email: "pas-une-adresse", lang: "nl" }));
+  assert.equal(bad.ok, false);
+  assert.equal(bad.code, "INVALID");
+  assert.equal(bad.fields.email, "invalid");
+  assert.ok(bad.message && !/^form\./.test(bad.message), "message traduit");
+  assert.equal(bad.reference, undefined, "jamais de référence sans enregistrement");
+  assert.equal(pub(G, "contact", contact({ consent: false })).fields.consent, "required");
+});
+
+test("accès direct : 5 demandes par adresse et par heure ; quota Gmail du jour épuisé → la demande est gardée, l'e-mail attend", () => {
+  const G = sheetGas({ props: GMAIL });
+  for (let i = 0; i < 5; i++) assert.equal(pub(G, "contact", contact()).ok, true);
+  assert.equal(pub(G, "contact", contact()).code, "RATE_LIMITED");
+  assert.equal(G.sheet("Demandes").records().length, 5);
+  const G2 = sheetGas({ props: GMAIL, mailQuota: 0 });
+  assert.equal(pub(G2, "contact", contact()).ok, true);
+  assert.equal(G2.mails.length, 0);
+  const m = G2.sheet("File d'envoi").records()[0];
+  assert.equal(m["Statut"], "À envoyer", "réessayé plus tard, sans essai perdu");
+  assert.equal(Number(m["Essais"]), -1);
+});
+
+test("accès direct sans JavaScript : formulaire HTML classique → page de confirmation avec la référence, ou page d'erreur", () => {
+  const G = sheetGas({ props: GMAIL });
+  const fields = { form: "contact", lang: "fr", name: "Luc Martin", email: "luc@exemple.be", message: "Rappelez-moi svp", consent: "on" };
+  const post = (f) => G.ctx.doPost({ parameter: { route: "contact", ...f }, postData: { type: "application/x-www-form-urlencoded", contents: new URLSearchParams(f).toString() } });
+  const page = post(fields);
+  const ref = G.sheet("Demandes").records()[0]["Référence"];
+  assert.match(page.html, /Demande envoyée/);
+  assert.ok(page.html.includes(ref));
+  const err = post({ ...fields, email: "x" });
+  assert.match(err.html, /La demande n/);
+  assert.doesNotMatch(err.html, /CFD-/);
+  assert.equal(G.sheet("Demandes").records().length, 1);
+});
+
+test("accès direct : réservation sur facture (place bloquée, client prévenu, équipe en copie) ; trop de participants refusé ; particulier → demande", () => {
+  const G = sheetGas({ props: GMAIL });
+  const r = pub(G, "registration", registration());
+  assert.equal(r.ok, true);
+  assert.equal(r.status, "pending_invoice");
+  assert.match(r.reference, /^CFS-2026-/);
+  assert.equal(r.remaining, 9);
+  assert.equal(r.capacity, 10);
+  assert.equal(bookings(G).length, 1);
+  assert.equal(bookings(G)[0]["Statut"], "En attente (facture)");
+  const mail = G.mails.find((m) => m.to === "marie@exemple.be");
+  assert.ok(mail, "confirmation au client");
+  assert.equal(mail.bcc, "info@centrecfs.be");
+  const many = Array.from({ length: 12 }, (_, i) => ({ firstName: "P" + i, lastName: "X" }));
+  const tooMany = pub(G, "registration", registration({ participants: many, customer: { ...registration().customer, email: "autre@exemple.be" } }));
+  assert.equal(tooMany.ok, false);
+  assert.equal(tooMany.code, "NOT_ENOUGH");
+  assert.equal(tooMany.remaining, 9);
+  assert.match(tooMany.message, /9/);
+  assert.equal(bookings(G).length, 1, "rien de réservé");
+  const ind = pub(G, "registration", registration({
+    billing: { type: "individual", street: "Rue 2", zip: "4000", city: "Liège" }, customer: { ...registration().customer, email: "luc@exemple.be" },
+  }));
+  assert.equal(ind.ok, true);
+  assert.equal(ind.status, "request");
+  assert.match(ind.reference, /^CFD-2026-/);
+  assert.equal(G.sheet("Demandes").records()[0]["Formulaire"], "Inscription");
+  assert.equal(bookings(G).length, 1, "aucune place bloquée pour une demande");
+  assert.equal(pub(G, "registration", registration({ terms: false })).fields.terms, "required");
+});
