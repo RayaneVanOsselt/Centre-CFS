@@ -1623,7 +1623,7 @@ def csp(meta=False):
     connect += [o for o in (origin(PUBLIC["formEndpoint"]), origin(PUBLIC["sessionsUrl"])) if o and o not in connect]
     # Accès direct à la feuille : l'application Web Google répond par une redirection vers script.googleusercontent.com
     google = [o for o in ("https://script.google.com", "https://script.googleusercontent.com") if GOOGLE.startswith("https://")]
-    connect += [o for o in google if o not in connect]
+    connect = list(dict.fromkeys(connect + google))  # sans doublon, ordre gardé
     forms = " ".join(["'self'"] + google)
     turnstile = bool(PUBLIC["turnstileSiteKey"])
     cf = " https://challenges.cloudflare.com" if turnstile else ""

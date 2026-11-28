@@ -93,7 +93,6 @@ var FORMATIONS = [
 /* Sessions de client/sessions.csv, ajoutées par « Installer » seulement si l'onglet Sessions est vide. */
 var SEED_SESSIONS = [
   {"training": "vca-base", "date": "2026-12-10", "endDate": null, "start": "08:30", "end": "17:00", "location": "charleroi", "language": "fr", "capacity": null, "published": true},
-  {"training": "vca-ligne-hierarchique", "date": "2026-11-26", "endDate": "2026-11-27", "start": "08:30", "end": "17:00", "location": "engis", "language": "fr", "capacity": null, "published": true},
   {"training": "vca-ligne-hierarchique", "date": "2026-12-10", "endDate": "2026-12-11", "start": "08:30", "end": "17:00", "location": "charleroi", "language": "fr", "capacity": null, "published": true},
   {"training": "vca-ligne-hierarchique", "date": "2026-12-14", "endDate": "2026-12-15", "start": "08:30", "end": "17:00", "location": "engis", "language": "fr", "capacity": null, "published": true},
   {"training": "ba4", "date": "2026-12-07", "endDate": null, "start": "08:30", "end": "16:30", "location": "engis", "language": "fr", "capacity": null, "published": true},
@@ -2028,6 +2027,7 @@ function processOutbox_(limit) {
     }
     if (!first && emailConfig_()) Utilities.sleep(CONFIG.EMAIL_SPACING_MS);
     first = false;
+    var tries0 = tries;
     tries = Math.max(tries, 0) + 1;
     try {
       sendEmail_({ template: clean_(get_(t, row, "template")), to: clean_(get_(t, row, "to")), bcc: clean_(get_(t, row, "bcc")),
@@ -2038,7 +2038,7 @@ function processOutbox_(limit) {
       var msg = String(err && err.message || err).slice(0, 300), retryable = !err.code || err.code === 429 || err.code >= 500;
       if (err && err.daily) {
         // Quota Gmail du jour : l'e-mail attend 6 heures, sans compter d'essai ; la suite de la file attend aussi
-        setCell_(t, line, "tries", tries - 1); setCell_(t, line, "error", asText_(msg));
+        setCell_(t, line, "tries", tries0); setCell_(t, line, "error", asText_(msg));
         setCell_(t, line, "status", Q_TODO); setCell_(t, line, "next", new Date(now.getTime() + 6 * 3600000));
         break;
       }

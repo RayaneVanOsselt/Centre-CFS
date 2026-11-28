@@ -1,11 +1,13 @@
 // Service worker du banc d'essai de bout en bout (tests/browser/e2e.html) : les appels /api/* (fetch ou formulaire)
-// sont confiés à l'onglet du banc, qui les fait traiter par le vrai code du Worker et le vrai moteur Apps Script.
+// sont confiés à l'onglet du banc, qui les fait traiter par le vrai code du Worker et le vrai moteur Apps Script ;
+// les appels …/gas/exec (accès direct, D-018) vont directement au vrai moteur Apps Script.
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
 
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
-  if (url.origin !== self.location.origin || !url.pathname.startsWith("/api/")) return;
+  // /api/* : Worker ; …/gas/exec : application Web Google simulée (site construit avec GOOGLE_SCRIPT_URL=/gas/exec)
+  if (url.origin !== self.location.origin || !(url.pathname.startsWith("/api/") || url.pathname.endsWith("/gas/exec"))) return;
   e.respondWith(forward(e.request));
 });
 

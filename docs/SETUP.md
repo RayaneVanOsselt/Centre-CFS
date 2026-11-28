@@ -3,8 +3,26 @@
 Tout tient dans les **plans gratuits** (Cloudflare, Supabase, EmailJS, Turnstile ; Mollie sans abonnement).
 Rien de public, de payant ni d'irréversible n'est fait sans ton accord : chaque étape ci-dessous, c'est toi qui la lances.
 
-Ordre conseillé : **1 → 2 → 3 → 4** suffisent pour l'agenda en direct, les réservations et les formulaires.
-Les comptes (5), le paiement (6) et l'IA du chatbot (7) viennent ensuite, chacun activé par un interrupteur.
+**Voie simple (choisie le 27/11/2026, D-018) : tout chez Google.** Seule l'étape 1 (la feuille) est nécessaire : le
+site sur GitHub Pages envoie formulaires, demandes d'inscription et réservations sur facture directement à la feuille,
+lit l'agenda en direct, et les e-mails partent par le Gmail du compte Google de la feuille. Voir « Mise à jour du
+script » ci-dessous. Cloudflare (2), EmailJS (3) et Turnstile (4) deviennent facultatifs ; l'IA de l'assistant, le
+paiement en ligne (6) et les comptes (5) demandent le Worker Cloudflare.
+
+Voie complète : **1 → 2 → 3 → 4** pour l'agenda, les réservations et les formulaires par le Worker, puis les comptes
+(5), le paiement (6) et l'IA du chatbot (7), chacun activé par un interrupteur.
+
+### Mise à jour du script (voie simple)
+
+1. Feuille › *Extensions › Apps Script* › fichier `Code.gs` : tout sélectionner, coller le contenu de
+   `apps-script/reservations.gs`, enregistrer (💾). Si un fichier `appsscript.json` est visible, le remplacer aussi.
+2. Choisir la fonction `install` en haut, **▶ Exécuter**, puis autoriser (dont « Envoyer des e-mails en votre nom »).
+3. *Déployer › Gérer les déploiements › ✏️ (modifier) › Version : Nouvelle version › Déployer*. L'adresse `/exec`
+   ne change pas. (Un *nouveau* déploiement changerait l'adresse : il faudrait alors mettre à jour la variable GitHub
+   `GOOGLE_SCRIPT_URL`.)
+4. Vérifier : l'adresse `/exec` suivie de `?route=sessions` affiche `"ok":true` et la liste des sessions.
+5. Facultatif, propriétés du script : `TEAM_EMAIL` (boîte de l'équipe, `info@centrecfs.be` par défaut), `SITE_URL`
+   (lien « Retour au site » de la page affichée sans JavaScript).
 
 > Règle d'or : une clé **secrète** ne va jamais dans le code, dans Git, dans une cellule de la feuille, dans le
 > navigateur ni dans un chat. Elle va dans `npx wrangler secret put NOM` (Worker) ou dans les *propriétés du script*
@@ -150,9 +168,11 @@ Détails et coûts : `docs/README-ASSISTANT.md`.
 | Variable | Valeur | Effet |
 |---|---|---|
 | `WORKER_API` | `1` | formulaires, agenda et réservations par `/api/*` (imposé par `npm run dev` / `npm run deploy`) |
+| `GOOGLE_SCRIPT_URL` | adresse `…/exec` | « tout chez Google » (D-018) : formulaires, agenda et réservations sur facture directement par la feuille, sans Worker (réglé dans `pages.yml`) |
 | `ACCOUNTS_ENABLED` | `0` / `1` | pages compte (Supabase) |
 | `ONLINE_PAYMENT_ENABLED` | `0` / `1` | paiement Mollie à l'inscription |
 | `CHATBOT_ENABLED` | `0` / `1` | assistant du site (cœur local) |
 | `TURNSTILE_SITE_KEY` | clé publique | widget anti-robots sur les formulaires |
 
-Sur GitHub Pages (aperçu actuel), tout reste à `0` : le site fonctionne en mode « e-mail pré-rempli » sans serveur.
+Sur GitHub Pages, `GOOGLE_SCRIPT_URL` relie le site à la feuille ; sans elle, le site fonctionne en mode « e-mail
+pré-rempli ».

@@ -43,7 +43,11 @@ jobs:
           # Destinataire des demandes (contact, devis, inscriptions). Pour le changer sans toucher au code :
           # Settings › Secrets and variables › Actions › onglet Variables › FORM_EMAIL.
           FORM_EMAIL: ${{ vars.FORM_EMAIL || 'vanosselt.rayane@gmail.com' }}
-          # Facultatif : adresse qui reçoit les formulaires en JSON (Formspree, Worker…). Vide = e-mail pré-rempli.
+          # « Tout chez Google » (DECISIONS.md D-018) : application Web de la feuille « Réservations – Centre CFS ».
+          # Formulaires, agenda en direct et réservations sur facture passent directement par la feuille, sans serveur.
+          # Adresse publique (toute demande y est revalidée). Pour la changer : variable GitHub GOOGLE_SCRIPT_URL.
+          GOOGLE_SCRIPT_URL: ${{ vars.GOOGLE_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbzEYakTIqFwJAyvYY-aJwYD6CwU9aDZcsdYeuW8JZe5HUS-Vl_g9ij-uBBNeE-SxA46/exec' }}
+          # Facultatif : autre adresse qui reçoit les formulaires en JSON (remplace celle de la feuille).
           FORM_ENDPOINT: ${{ vars.FORM_ENDPOINT }}
           # Facultatif : liste publique des sessions avec places en direct. Vide = client/sessions.csv.
           SESSIONS_PUBLIC_URL: ${{ vars.SESSIONS_PUBLIC_URL }}
